@@ -1,0 +1,900 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="Tablero">
+<title>Tablero</title>
+<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@1.15.3/dist/maplibre-gl.css">
+<style>
+  body.noche {
+    --bg: #0B0F17; --panel: #141B2B; --panel2: #1A2338; --borde: #2A3654; --texto: #F2F4F6; --suave: #9FB4D6; --tenue: #6F82A6;
+    --acento: #22D3EE; --acento-texto: #08222A;
+    --clima-bg: #2A2112; --clima-borde: #40321A; --clima-suave: #D9C7A3; --clima-item: #3A2E17;
+    --musica-bg: #211A35; --musica-borde: #362B5C; --musica-suave: #C4B5FD; --musica-btn: #33295A; --musica-arte: #5B45A8;
+    --viaje-bg: #0F2A24; --viaje-borde: #1D4A3F; --viaje-suave: #86EFAC;
+    --peligro-bg: #3A1A24; --peligro-texto: #FFC2CC;
+  }
+  body.dia {
+    --bg: #EEF1F5; --panel: #FFFFFF; --panel2: #F1F3F6; --borde: #D9DEE3; --texto: #1A1F24; --suave: #4A5560; --tenue: #6B7682;
+    --acento: #0891B2; --acento-texto: #FFFFFF;
+    --clima-bg: #FFF4DD; --clima-borde: #F1DDAE; --clima-suave: #7A5A1A; --clima-item: #FBE7BE;
+    --musica-bg: #F1ECFF; --musica-borde: #DCD1FB; --musica-suave: #5B45A8; --musica-btn: #E2D9FD; --musica-arte: #7C64D6;
+    --viaje-bg: #E3F6EE; --viaje-borde: #BFE6D4; --viaje-suave: #16794F;
+    --peligro-bg: #FDE8E7; --peligro-texto: #B3261E;
+  }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); color: var(--texto);
+    font-family: -apple-system, "Helvetica Neue", Helvetica, sans-serif; -webkit-user-select: none; user-select: none;
+    -webkit-tap-highlight-color: transparent; }
+  button { font-family: inherit; -webkit-appearance: none; cursor: pointer; color: inherit; }
+  input { font-family: inherit; }
+  .oculto { display: none !important; }
+
+  .app { position: absolute; top: 0; left: 0; right: 0; bottom: 0; display: flex; flex-direction: column; }
+  .main { position: relative; flex: 1 1 auto; min-height: 0; display: flex; }
+  .zona-mapa { position: relative; flex: 1 1 auto; min-width: 0; overflow: hidden; }
+  #mapa { position: absolute; top: 0; left: 0; right: 0; bottom: 0; }
+  .columna { width: 330px; flex: 0 0 330px; box-sizing: border-box; padding: 12px; display: flex; flex-direction: column;
+    background: var(--bg); border-left: 1px solid var(--borde); overflow: hidden; }
+  .columna > * + * { margin-top: 12px; }
+
+  /* Superposiciones sobre el mapa */
+  .pill { position: absolute; left: 12px; top: 12px; display: flex; align-items: center; padding: 9px 14px; border-radius: 999px;
+    background: var(--panel); border: 1px solid var(--borde); font-size: 14px; font-weight: 600; }
+  .pill .punto { width: 10px; height: 10px; border-radius: 50%; margin-right: 9px; background: #FBBF24; }
+  .controles { position: absolute; right: 12px; top: 12px; }
+  .controles button { display: flex; align-items: center; justify-content: center; width: 56px; height: 52px; margin-bottom: 10px;
+    border: 1px solid var(--borde); border-radius: 14px; background: var(--panel); font-size: 14px; font-weight: 700; }
+  .velocimetro { position: absolute; left: 12px; bottom: 12px; padding: 10px 18px; border-radius: 18px; background: var(--panel);
+    border: 1px solid var(--borde); display: flex; align-items: baseline; }
+  .velocimetro .num { font-size: 56px; font-weight: 700; line-height: 1; letter-spacing: -1px; }
+  .velocimetro .unidad { font-size: 15px; font-weight: 600; color: var(--suave); margin-left: 6px; }
+  .btn-recentrar { position: absolute; right: 12px; bottom: 12px; height: 56px; padding: 0 20px; border: 0; border-radius: 14px;
+    background: var(--acento); color: var(--acento-texto); font-size: 17px; font-weight: 700; }
+  .aviso { position: absolute; left: 12px; right: 80px; top: 62px; padding: 12px 16px; border-radius: 14px;
+    background: var(--peligro-bg); color: var(--peligro-texto); font-size: 15px; display: none; }
+
+  /* Tarjetas de la columna */
+  .tarjeta { border-radius: 18px; padding: 14px 16px; border: 1px solid var(--borde); background: var(--panel); }
+  .tarjeta .titulo { display: flex; align-items: center; justify-content: space-between; font-size: 12px; font-weight: 700;
+    letter-spacing: 0.05em; text-transform: uppercase; }
+  .viaje { background: var(--viaje-bg); border-color: var(--viaje-borde); }
+  .viaje .titulo { color: var(--viaje-suave); }
+  .viaje .titulo button { border: 0; background: transparent; color: var(--viaje-suave); font-size: 13px; font-weight: 600;
+    padding: 6px 0 6px 12px; text-transform: none; letter-spacing: 0; }
+  .stats { display: flex; margin-top: 8px; }
+  .stat { flex: 1 1 0; }
+  .stat .v { font-size: 24px; font-weight: 700; }
+  .stat .e { font-size: 12px; color: var(--viaje-suave); margin-top: 2px; }
+  .musica-mini { background: var(--musica-bg); border-color: var(--musica-borde); display: flex; align-items: center; }
+  .arte { flex-shrink: 0; border-radius: 12px; background: var(--musica-arte); background-size: cover; background-position: center;
+    display: flex; align-items: center; justify-content: center; }
+  .musica-mini .arte { width: 60px; height: 60px; }
+  .musica-mini .info { flex: 1 1 auto; min-width: 0; margin-left: 12px; }
+  .musica-mini .t { font-size: 16px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .musica-mini .a { font-size: 13px; color: var(--musica-suave); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
+  .btn-redondo { width: 48px; height: 48px; border-radius: 50%; border: 0; display: flex; align-items: center; justify-content: center;
+    background: var(--musica-btn); flex-shrink: 0; margin-left: 8px; }
+  .btn-redondo.principal { background: var(--musica-suave); color: var(--musica-bg); }
+  .clima-mini { background: var(--clima-bg); border-color: var(--clima-borde); }
+  .clima-mini .fila { display: flex; align-items: center; }
+  .clima-mini .temp { font-size: 46px; font-weight: 700; line-height: 1; margin-left: 10px; }
+  .clima-mini .desc { font-size: 14px; color: var(--clima-suave); margin-top: 6px; }
+  .relleno { flex: 1 1 auto; }
+
+  /* Dock */
+  .dock { flex: 0 0 76px; display: flex; align-items: center; padding: 0 12px; background: var(--panel); border-top: 1px solid var(--borde); }
+  .dock-btn { width: 92px; height: 60px; margin-right: 8px; border: 0; border-radius: 14px; background: transparent;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; color: var(--suave); position: relative; }
+  .dock-btn svg { margin-bottom: 3px; }
+  .dock-btn.activo { background: var(--panel2); color: var(--texto); }
+  .dock-btn .candado { position: absolute; top: 6px; right: 18px; display: none; }
+  body.en-movimiento .dock-btn.bloqueable .candado { display: block; }
+  body.en-movimiento .dock-btn.bloqueable { opacity: 0.45; }
+  .reloj { margin-left: auto; text-align: right; }
+  .reloj .hora { font-size: 34px; font-weight: 700; line-height: 1; letter-spacing: -0.5px; }
+  .reloj .fecha { font-size: 13px; color: var(--suave); margin-top: 2px; }
+
+  /* Pantallas completas (apps del dock) */
+  .pantalla { position: absolute; top: 0; left: 0; right: 0; bottom: 0; z-index: 20; background: var(--bg); display: none; flex-direction: column; }
+  .pantalla.visible { display: flex; }
+  .pantalla-cab { flex: 0 0 64px; display: flex; align-items: center; padding: 0 16px 0 24px; border-bottom: 1px solid var(--borde); }
+  .pantalla-cab h2 { margin: 0 auto 0 0; font-size: 24px; font-weight: 700; }
+  .pantalla-cab .extra { margin-right: 12px; font-size: 16px; color: var(--suave); font-weight: 600; }
+  .pantalla-cab .cerrar { width: 48px; height: 48px; border: 1px solid var(--borde); border-radius: 14px; background: var(--panel);
+    display: flex; align-items: center; justify-content: center; }
+  .pantalla-cuerpo { flex: 1 1 auto; min-height: 0; overflow: auto; -webkit-overflow-scrolling: touch; padding: 24px; box-sizing: border-box; }
+
+  .musica-grande { display: flex; align-items: center; height: 100%; }
+  .musica-grande .arte { width: 300px; height: 300px; border-radius: 24px; }
+  .musica-grande .info { margin-left: 40px; flex: 1 1 auto; min-width: 0; }
+  .musica-grande .t { font-size: 34px; font-weight: 700; }
+  .musica-grande .a { font-size: 22px; color: var(--musica-suave); margin-top: 6px; }
+  .musica-grande .al { font-size: 16px; color: var(--tenue); margin-top: 4px; }
+  .progreso { height: 6px; border-radius: 999px; background: var(--musica-btn); margin-top: 28px; overflow: hidden; }
+  .progreso div { height: 6px; background: var(--musica-suave); width: 0; }
+  .tiempos { display: flex; justify-content: space-between; font-size: 14px; color: var(--tenue); margin-top: 6px; }
+  .controles-musica { display: flex; align-items: center; margin-top: 24px; }
+  .controles-musica button { margin-right: 20px; }
+  .controles-musica .btn-redondo { width: 68px; height: 68px; margin-left: 0; }
+  .controles-musica .btn-redondo.principal { width: 88px; height: 88px; }
+  .nota { font-size: 14px; color: var(--tenue); margin-top: 18px; }
+
+  .clima-hoy { display: flex; align-items: center; }
+  .clima-hoy .temp { font-size: 96px; font-weight: 700; line-height: 1; margin-left: 16px; }
+  .clima-hoy .desc { font-size: 20px; color: var(--suave); margin-left: 28px; }
+  .horas-scroll { display: flex; overflow-x: auto; -webkit-overflow-scrolling: touch; margin-top: 24px; padding-bottom: 6px; }
+  .hora-item { flex: 0 0 76px; text-align: center; padding: 10px 0; border-radius: 14px; background: var(--clima-bg); border: 1px solid var(--clima-borde); margin-right: 8px; }
+  .hora-item .h { font-size: 13px; color: var(--clima-suave); }
+  .hora-item .t { font-size: 22px; font-weight: 700; margin-top: 4px; }
+  .hora-item .p { font-size: 12px; color: #3B82F6; margin-top: 2px; min-height: 15px; }
+  .dias { margin-top: 20px; }
+  .dia-fila { display: flex; align-items: center; padding: 12px 4px; border-bottom: 1px solid var(--borde); font-size: 18px; }
+  .dia-fila .nombre { width: 140px; font-weight: 600; }
+  .dia-fila .lluvia { width: 80px; color: #3B82F6; font-size: 15px; margin-left: 12px; }
+  .dia-fila .rango { margin-left: auto; font-weight: 600; }
+  .dia-fila .rango span { color: var(--tenue); margin-right: 14px; font-weight: 500; }
+
+  .video-marco { position: relative; width: 100%; padding-top: 56.25%; background: #000; border-radius: 16px; overflow: hidden; margin-bottom: 20px; }
+  .video-marco iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 0; }
+  .agregar { display: flex; }
+  .agregar input { flex: 1 1 auto; height: 52px; padding: 0 16px; font-size: 17px; border-radius: 14px; border: 1px solid var(--borde);
+    background: var(--panel); color: var(--texto); -webkit-user-select: text; user-select: text; }
+  .agregar button, .btn-texto { height: 52px; padding: 0 20px; margin-left: 10px; border: 0; border-radius: 14px; background: var(--acento);
+    color: var(--acento-texto); font-size: 16px; font-weight: 700; }
+  .video-fila { display: flex; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--borde); }
+  .video-fila .nombre { flex: 1 1 auto; font-size: 16px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .video-fila button { height: 44px; padding: 0 16px; margin-left: 10px; border-radius: 12px; border: 1px solid var(--borde); background: var(--panel); font-size: 15px; font-weight: 600; }
+
+  #lienzoJuego { display: block; width: 100%; height: 100%; }
+  .cuerpo-juego { padding: 0; overflow: hidden; }
+
+  .toast { position: absolute; left: 50%; bottom: 96px; -webkit-transform: translateX(-50%); transform: translateX(-50%);
+    padding: 14px 22px; border-radius: 14px; background: var(--texto); color: var(--bg); font-size: 16px; font-weight: 600;
+    z-index: 50; opacity: 0; -webkit-transition: opacity 0.25s; transition: opacity 0.25s; pointer-events: none; }
+  .toast.visible { opacity: 1; }
+</style>
+</head>
+<body class="noche">
+<div class="app">
+  <div class="main">
+    <div class="zona-mapa">
+      <div id="mapa"></div>
+      <div class="pill"><div class="punto" id="punto"></div><span id="estado">Buscando el iPhone…</span></div>
+      <div class="aviso" id="aviso"></div>
+      <div class="controles">
+        <button type="button" id="btnVista" aria-label="Cambiar vista">Seguir</button>
+        <button type="button" id="btnTema" aria-label="Cambiar tema día o noche">Auto</button>
+        <button type="button" id="btnMas" aria-label="Acercar">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg>
+        </button>
+        <button type="button" id="btnMenos" aria-label="Alejar">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14"></path></svg>
+        </button>
+      </div>
+      <div class="velocimetro"><span class="num" id="vel">--</span><span class="unidad">km/h</span></div>
+      <button type="button" class="btn-recentrar oculto" id="btnRecentrar">Recentrar</button>
+    </div>
+
+    <div class="columna">
+      <div class="tarjeta viaje">
+        <div class="titulo"><span>Viaje</span><button type="button" id="btnReiniciar">Reiniciar</button></div>
+        <div class="stats">
+          <div class="stat"><div class="v" id="vDist">0,0</div><div class="e">km recorridos</div></div>
+          <div class="stat"><div class="v" id="vProm">--</div><div class="e">km/h promedio</div></div>
+          <div class="stat"><div class="v" id="vAlt">--</div><div class="e">m de altitud</div></div>
+        </div>
+      </div>
+
+      <div class="tarjeta musica-mini" id="musicaMini" role="button" aria-label="Abrir música">
+        <div class="arte" id="arteMini"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#EDE9FE" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18V5l12-2v13"></path><circle cx="6" cy="18" r="3"></circle><circle cx="18" cy="16" r="3"></circle></svg></div>
+        <div class="info"><div class="t" id="tMini">Música</div><div class="a" id="aMini">Esperando al iPhone…</div></div>
+        <button type="button" class="btn-redondo principal" id="btnPlayMini" aria-label="Reproducir o pausar"></button>
+        <button type="button" class="btn-redondo" id="btnSigMini" aria-label="Tema siguiente">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M16 5h2v14h-2z"></path><path d="M4 5v14l11-7z"></path></svg>
+        </button>
+      </div>
+
+      <div class="tarjeta clima-mini" id="climaMini" role="button" aria-label="Abrir clima">
+        <div class="fila"><span id="iconoClima"></span><span class="temp" id="temp">--°</span></div>
+        <div class="desc" id="descClima">Cargando clima…</div>
+      </div>
+      <div class="relleno"></div>
+    </div>
+
+    <!-- Pantallas del dock -->
+    <section class="pantalla" id="p-musica">
+      <div class="pantalla-cab"><h2>Música</h2><button type="button" class="cerrar" data-cerrar aria-label="Cerrar">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12"></path><path d="M18 6L6 18"></path></svg></button></div>
+      <div class="pantalla-cuerpo">
+        <div class="musica-grande">
+          <div class="arte" id="arteGrande"><svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="#EDE9FE" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18V5l12-2v13"></path><circle cx="6" cy="18" r="3"></circle><circle cx="18" cy="16" r="3"></circle></svg></div>
+          <div class="info">
+            <div class="t" id="tGrande">Sin reproducción</div>
+            <div class="a" id="aGrande">Poné música en la app Música del iPhone</div>
+            <div class="al" id="alGrande"></div>
+            <div class="progreso"><div id="barraMusica"></div></div>
+            <div class="tiempos"><span id="tPos">0:00</span><span id="tDur">0:00</span></div>
+            <div class="controles-musica">
+              <button type="button" class="btn-redondo" id="btnAnt" aria-label="Tema anterior">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6 5h2v14H6z"></path><path d="M20 5v14L9 12z"></path></svg></button>
+              <button type="button" class="btn-redondo principal" id="btnPlay" aria-label="Reproducir o pausar"></button>
+              <button type="button" class="btn-redondo" id="btnSig" aria-label="Tema siguiente">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M16 5h2v14h-2z"></path><path d="M4 5v14l11-7z"></path></svg></button>
+            </div>
+            <div class="nota" id="notaMusica">Controla la app Música (Apple Music) del iPhone.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="pantalla" id="p-clima">
+      <div class="pantalla-cab"><h2>Clima</h2><button type="button" class="cerrar" data-cerrar aria-label="Cerrar">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12"></path><path d="M18 6L6 18"></path></svg></button></div>
+      <div class="pantalla-cuerpo">
+        <div class="clima-hoy"><span id="iconoClimaG"></span><span class="temp" id="tempG">--°</span><span class="desc" id="descClimaG"></span></div>
+        <div class="horas-scroll" id="horasG"></div>
+        <div class="dias" id="diasG"></div>
+      </div>
+    </section>
+
+    <section class="pantalla" id="p-videos">
+      <div class="pantalla-cab"><h2>Videos</h2><button type="button" class="cerrar" data-cerrar aria-label="Cerrar">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12"></path><path d="M18 6L6 18"></path></svg></button></div>
+      <div class="pantalla-cuerpo">
+        <div class="video-marco oculto" id="marcoVideo"></div>
+        <div class="agregar">
+          <input type="url" id="inputVideo" placeholder="Pegá un link de YouTube" aria-label="Link de YouTube" autocomplete="off">
+          <button type="button" id="btnAgregarVideo">Agregar</button>
+        </div>
+        <div id="listaVideos"></div>
+        <div class="nota">Solo con el auto detenido. Si se empieza a mover, el video se pausa.</div>
+      </div>
+    </section>
+
+    <section class="pantalla" id="p-juego">
+      <div class="pantalla-cab"><h2>Juego</h2><span class="extra" id="puntaje">0 pts</span><button type="button" class="cerrar" data-cerrar aria-label="Cerrar">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12"></path><path d="M18 6L6 18"></path></svg></button></div>
+      <div class="pantalla-cuerpo cuerpo-juego" id="cuerpoJuego"><canvas id="lienzoJuego"></canvas></div>
+    </section>
+  </div>
+
+  <nav class="dock" aria-label="Apps">
+    <button type="button" class="dock-btn activo" data-app="mapa">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2l7 19-7-4-7 4z"></path></svg>Mapa</button>
+    <button type="button" class="dock-btn" data-app="musica">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18V5l12-2v13"></path><circle cx="6" cy="18" r="3"></circle><circle cx="18" cy="16" r="3"></circle></svg>Música</button>
+    <button type="button" class="dock-btn" data-app="clima">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 19h10a4 4 0 0 0 .5-8 6 6 0 0 0-11.5 1.6A3.2 3.2 0 0 0 7 19z"></path></svg>Clima</button>
+    <button type="button" class="dock-btn bloqueable" data-app="videos">
+      <svg class="candado" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"></rect><path d="M8 11V7a4 4 0 0 1 8 0v4"></path></svg>
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="3"></rect><path d="M10 9l5 3-5 3z"></path></svg>Videos</button>
+    <button type="button" class="dock-btn bloqueable" data-app="juego">
+      <svg class="candado" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"></rect><path d="M8 11V7a4 4 0 0 1 8 0v4"></path></svg>
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="7" width="20" height="11" rx="4"></rect><path d="M7 11v3M5.5 12.5h3"></path><circle cx="16" cy="11.5" r="1"></circle><circle cx="18" cy="13.5" r="1"></circle></svg>Juego</button>
+    <div class="reloj"><div class="hora" id="hora">--:--</div><div class="fecha" id="fecha"></div></div>
+  </nav>
+  <div class="toast" id="toast"></div>
+</div>
+
+<script src="https://unpkg.com/maplibre-gl@1.15.3/dist/maplibre-gl.js"></script>
+<script src="https://unpkg.com/three@0.149.0/build/three.min.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  var WEB_VERSION = '2.0.0';
+  var INTERVALO_POS_MS = 500;
+  var BUENOS_AIRES = [-58.3816, -34.6037];
+  var DEMO = /[?&]demo=1/.test(location.search);
+  var VEL_MOVIMIENTO = 2.2; // m/s (≈ 8 km/h): por encima, el auto se considera en movimiento
+
+  // ================= Utilidades =================
+  function $(id) { return document.getElementById(id); }
+  function ahora() { return Date.now(); }
+  function guardar(clave, valor) { try { localStorage.setItem(clave, JSON.stringify(valor)); } catch (e) {} }
+  function leer(clave, def) { try { var v = localStorage.getItem(clave); return v ? JSON.parse(v) : def; } catch (e) { return def; } }
+  function aviso(texto) { var a = $('aviso'); a.textContent = texto || ''; a.style.display = texto ? 'block' : 'none'; }
+  function estado(texto, color) { $('estado').textContent = texto; $('punto').style.background = color; }
+  var toastTimer = null;
+  function toast(texto) {
+    var t = $('toast'); t.textContent = texto; t.className = 'toast visible';
+    clearTimeout(toastTimer); toastTimer = setTimeout(function () { t.className = 'toast'; }, 2800);
+  }
+  function pedirJSON(url, timeout, ok, error) {
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', url, true);
+    xhr.timeout = timeout;
+    xhr.onload = function () {
+      if (xhr.status !== 200) { if (error) error(); return; }
+      var d; try { d = JSON.parse(xhr.responseText); } catch (e) { if (error) error(); return; }
+      ok(d);
+    };
+    xhr.onerror = function () { if (error) error(); };
+    xhr.ontimeout = function () { if (error) error(); };
+    xhr.send();
+  }
+  function fmtTiempo(s) { s = Math.max(0, Math.floor(s || 0)); return Math.floor(s / 60) + ':' + ('0' + (s % 60)).slice(-2); }
+  function distancia(a, b) {
+    var rad = Math.PI / 180, x = (b.lng - a.lng) * rad * Math.cos((a.lat + b.lat) / 2 * rad), y = (b.lat - a.lat) * rad;
+    return Math.sqrt(x * x + y * y) * 6371000;
+  }
+  function interpAngulo(a, b, k) { var d = ((b - a + 540) % 360) - 180; return (a + d * k + 360) % 360; }
+
+  function iconoPlay(t) { return '<svg width="' + t + '" height="' + t + '" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 4v16l13-8z"></path></svg>'; }
+  function iconoPausa(t) { return '<svg width="' + t + '" height="' + t + '" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6 4h4v16H6z"></path><path d="M14 4h4v16h-4z"></path></svg>'; }
+
+  // ================= Reloj =================
+  function actualizarReloj() {
+    var d = new Date();
+    $('hora').textContent = ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2);
+    var f; try { f = d.toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' }); } catch (e) { f = d.toDateString(); }
+    $('fecha').textContent = f.charAt(0).toUpperCase() + f.slice(1);
+  }
+  actualizarReloj(); setInterval(actualizarReloj, 5000);
+
+  // ================= Día y noche (cálculo de salida y puesta del sol) =================
+  var SOL = (function () {
+    var rad = Math.PI / 180, diaMs = 86400000, J1970 = 2440588, J2000 = 2451545, e = rad * 23.4397, J0 = 0.0009;
+    function aJuliano(d) { return d.valueOf() / diaMs - 0.5 + J1970; }
+    function deJuliano(j) { return new Date((j + 0.5 - J1970) * diaMs); }
+    function anomalia(d) { return rad * (357.5291 + 0.98560028 * d); }
+    function longEcliptica(M) { var C = rad * (1.9148 * Math.sin(M) + 0.02 * Math.sin(2 * M) + 0.0003 * Math.sin(3 * M)); return M + C + rad * 102.9372 + Math.PI; }
+    function transito(ds, M, L) { return J2000 + ds + 0.0053 * Math.sin(M) - 0.0069 * Math.sin(2 * L); }
+    return function (fecha, lat, lng) {
+      var lw = rad * -lng, phi = rad * lat, d = aJuliano(fecha) - J2000;
+      var n = Math.round(d - J0 - lw / (2 * Math.PI));
+      var ds = J0 + lw / (2 * Math.PI) + n, M = anomalia(ds), L = longEcliptica(M);
+      var dec = Math.asin(Math.sin(e) * Math.sin(L)), Jmedio = transito(ds, M, L);
+      var w = Math.acos((Math.sin(rad * -0.833) - Math.sin(phi) * Math.sin(dec)) / (Math.cos(phi) * Math.cos(dec)));
+      var Jpuesta = transito(J0 + (w + lw) / (2 * Math.PI) + n, M, L);
+      return { salida: deJuliano(Jmedio - (Jpuesta - Jmedio)), puesta: deJuliano(Jpuesta) };
+    };
+  })();
+
+  var modoTema = leer('modoTema', 'auto'); // auto | dia | noche
+  var temaActual = null;
+  function temaDeseado() {
+    if (modoTema !== 'auto') return modoTema;
+    var p = ultima || { lat: BUENOS_AIRES[1], lng: BUENOS_AIRES[0] };
+    var s = SOL(new Date(), p.lat, p.lng), t = new Date();
+    return (t > s.salida && t < s.puesta) ? 'dia' : 'noche';
+  }
+  function aplicarTema() {
+    var tema = temaDeseado();
+    $('btnTema').textContent = modoTema === 'auto' ? 'Auto' : (modoTema === 'dia' ? 'Día' : 'Noche');
+    if (tema === temaActual) return;
+    temaActual = tema;
+    document.body.className = tema + (enMovimiento ? ' en-movimiento' : '');
+    if (mapaListo) aplicarTemaMapa(tema);
+    if (auto3d) auto3d.tema(tema);
+  }
+  $('btnTema').addEventListener('click', function () {
+    modoTema = modoTema === 'auto' ? 'dia' : (modoTema === 'dia' ? 'noche' : 'auto');
+    guardar('modoTema', modoTema);
+    temaActual = null; aplicarTema();
+    toast(modoTema === 'auto' ? 'Tema automático según el sol' : (modoTema === 'dia' ? 'Tema día' : 'Tema noche'));
+  });
+
+  // ================= Mapa =================
+  if (typeof maplibregl === 'undefined') { aviso('No se pudo cargar el mapa. Revisá que el iPad tenga internet.'); return; }
+  if (!maplibregl.supported()) { aviso('Este navegador no soporta mapas con WebGL.'); return; }
+
+  var COLORES = {
+    noche: { fondo: '#141B2B', agua: '#12406A', parque: '#17463A', calleP: '#2D4466', calleS: '#26385A', calle: '#1F2940',
+      texto: '#9FB4D6', halo: '#0B0F17', edif: ['#34406A', '#3C3768', '#2F4A66'] },
+    dia: { fondo: '#EEF1F4', agua: '#BFD9EE', parque: '#CDE7D4', calleP: '#FFFFFF', calleS: '#FFFFFF', calle: '#F8FAFC',
+      texto: '#4A5560', halo: '#FFFFFF', edif: ['#D5DCE6', '#CBD3DF', '#DDE3EA'] }
+  };
+  function colorCalles(c) { return ['match', ['get', 'class'], ['motorway', 'trunk', 'primary'], c.calleP, 'secondary', c.calleS, c.calle]; }
+  function colorEdif(c) { return ['match', ['%', ['to-number', ['coalesce', ['get', 'render_height'], 0]], 3], 0, c.edif[0], 1, c.edif[1], c.edif[2]]; }
+
+  var C0 = COLORES.noche;
+  var estilo = {
+    version: 8,
+    glyphs: 'https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf',
+    sources: { omt: { type: 'vector', url: 'https://tiles.openfreemap.org/planet' } },
+    layers: [
+      { id: 'fondo', type: 'background', paint: { 'background-color': C0.fondo } },
+      { id: 'agua', type: 'fill', source: 'omt', 'source-layer': 'water', paint: { 'fill-color': C0.agua } },
+      { id: 'parques', type: 'fill', source: 'omt', 'source-layer': 'park', paint: { 'fill-color': C0.parque } },
+      { id: 'calles', type: 'line', source: 'omt', 'source-layer': 'transportation',
+        filter: ['in', 'class', 'motorway', 'trunk', 'primary', 'secondary', 'tertiary', 'minor', 'service'],
+        layout: { 'line-cap': 'round', 'line-join': 'round' },
+        paint: { 'line-color': colorCalles(C0), 'line-width': ['interpolate', ['exponential', 1.5], ['zoom'], 12, 1, 16, 8, 18, 26] } },
+      { id: 'nombres', type: 'symbol', source: 'omt', 'source-layer': 'transportation_name', minzoom: 15,
+        filter: ['in', 'class', 'motorway', 'trunk', 'primary', 'secondary', 'tertiary', 'minor'],
+        layout: { 'symbol-placement': 'line', 'text-field': ['get', 'name'], 'text-size': 13, 'text-font': ['Noto Sans Regular'] },
+        paint: { 'text-color': C0.texto, 'text-halo-color': C0.halo, 'text-halo-width': 1.5 } },
+      { id: 'edificios', type: 'fill-extrusion', source: 'omt', 'source-layer': 'building', minzoom: 14,
+        paint: { 'fill-extrusion-color': colorEdif(C0), 'fill-extrusion-height': ['coalesce', ['get', 'render_height'], 10],
+          'fill-extrusion-base': ['coalesce', ['get', 'render_min_height'], 0], 'fill-extrusion-opacity': 0.92 } }
+    ]
+  };
+
+  function aplicarTemaMapa(tema) {
+    var c = COLORES[tema];
+    mapa.setPaintProperty('fondo', 'background-color', c.fondo);
+    mapa.setPaintProperty('agua', 'fill-color', c.agua);
+    mapa.setPaintProperty('parques', 'fill-color', c.parque);
+    mapa.setPaintProperty('calles', 'line-color', colorCalles(c));
+    mapa.setPaintProperty('nombres', 'text-color', c.texto);
+    mapa.setPaintProperty('nombres', 'text-halo-color', c.halo);
+    mapa.setPaintProperty('edificios', 'fill-extrusion-color', colorEdif(c));
+  }
+
+  // Vistas: seguir (cámara detrás del auto), mapa (más alejado), 2d (plano con el norte arriba)
+  var VISTAS = {
+    seguir: { pitch: 60, zoom: 18.4, padTop: 0.5, etiqueta: 'Seguir' },
+    mapa: { pitch: 45, zoom: 16.2, padTop: 0.3, etiqueta: 'Mapa' },
+    '2d': { pitch: 0, zoom: 16.5, padTop: 0, etiqueta: '2D' }
+  };
+  var ORDEN_VISTAS = ['seguir', 'mapa', '2d'];
+  var vista = leer('vista', 'seguir');
+  if (!VISTAS[vista]) vista = 'seguir';
+
+  var mapa = new maplibregl.Map({
+    container: 'mapa', style: estilo, center: BUENOS_AIRES, zoom: VISTAS[vista].zoom, pitch: VISTAS[vista].pitch, bearing: 0,
+    attributionControl: true, pitchWithRotate: false
+  });
+  var mapaListo = false;
+  mapa.on('error', function (e) { var m = e && e.error && e.error.message; if (m) console.log('Mapa: ' + m); });
+
+  function padding() { var v = VISTAS[vista]; return { top: Math.round($('mapa').clientHeight * v.padTop), bottom: 0, left: 0, right: 0 }; }
+  function aplicarVista(animar) {
+    var v = VISTAS[vista];
+    $('btnVista').textContent = v.etiqueta;
+    var opciones = { pitch: v.pitch, zoom: v.zoom, padding: padding(), duration: animar ? 700 : 0 };
+    if (actual) { opciones.center = [actual.lng, actual.lat]; opciones.bearing = vista === '2d' ? 0 : actual.h; }
+    siguiendo = true; $('btnRecentrar').className = 'btn-recentrar oculto';
+    mapa.easeTo(opciones);
+  }
+  $('btnVista').addEventListener('click', function () {
+    vista = ORDEN_VISTAS[(ORDEN_VISTAS.indexOf(vista) + 1) % ORDEN_VISTAS.length];
+    guardar('vista', vista); aplicarVista(true);
+  });
+  $('btnMas').addEventListener('click', function () { mapa.zoomIn(); });
+  $('btnMenos').addEventListener('click', function () { mapa.zoomOut(); });
+
+  // Si el usuario mueve o gira el mapa con los dedos, dejamos de seguir hasta "Recentrar"
+  var siguiendo = true;
+  function dejarDeSeguir(e) { if (e && e.originalEvent) { siguiendo = false; $('btnRecentrar').className = 'btn-recentrar'; } }
+  mapa.on('dragstart', dejarDeSeguir);
+  mapa.on('rotatestart', dejarDeSeguir);
+  $('btnRecentrar').addEventListener('click', function () { aplicarVista(true); });
+
+  // ================= Auto 3D =================
+  var auto3d = null, marcador = null;
+
+  function crearAuto3D() {
+    var ESCALA = 4; // el auto se dibuja más grande que en la realidad para que se vea bien
+    var camara = new THREE.Camera(), escena = new THREE.Scene(), render = null, grupo = new THREE.Group();
+    escena.add(new THREE.AmbientLight(0xffffff, 0.75));
+    var sol = new THREE.DirectionalLight(0xffffff, 0.6); sol.position.set(30, 80, 40); escena.add(sol);
+
+    var matCarro = new THREE.MeshLambertMaterial({ color: 0x22D3EE });
+    var matVidrio = new THREE.MeshLambertMaterial({ color: 0x0E1726 });
+    var matRueda = new THREE.MeshLambertMaterial({ color: 0x111111 });
+    var matLuz = new THREE.MeshBasicMaterial({ color: 0xFFF7D6 });
+    var matFreno = new THREE.MeshBasicMaterial({ color: 0xEF4444 });
+    function caja(w, h, l, mat, x, y, z) { var m = new THREE.Mesh(new THREE.BoxGeometry(w, h, l), mat); m.position.set(x, y, z); grupo.add(m); return m; }
+    // La trompa apunta hacia -Z
+    caja(1.8, 0.55, 4.4, matCarro, 0, 0.6, 0);            // carrocería
+    caja(1.62, 0.5, 2.2, matVidrio, 0, 1.12, 0.25);       // cabina vidriada
+    caja(1.5, 0.08, 2.0, matCarro, 0, 1.4, 0.25);         // techo
+    caja(0.42, 0.14, 0.06, matLuz, -0.6, 0.66, -2.21);    // faros
+    caja(0.42, 0.14, 0.06, matLuz, 0.6, 0.66, -2.21);
+    caja(0.42, 0.14, 0.06, matFreno, -0.6, 0.66, 2.21);   // luces de freno
+    caja(0.42, 0.14, 0.06, matFreno, 0.6, 0.66, 2.21);
+    [[-0.92, -1.4], [0.92, -1.4], [-0.92, 1.4], [0.92, 1.4]].forEach(function (p) {
+      var r = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.34, 0.26, 14), matRueda);
+      r.rotation.z = Math.PI / 2; r.position.set(p[0], 0.34, p[1]); grupo.add(r);
+    });
+    escena.add(grupo);
+
+    var pos = { lng: BUENOS_AIRES[0], lat: BUENOS_AIRES[1], h: 0 }, visible = false;
+    var capa = {
+      id: 'auto-3d', type: 'custom', renderingMode: '3d',
+      onAdd: function (map, gl) {
+        render = new THREE.WebGLRenderer({ canvas: map.getCanvas(), context: gl, antialias: true });
+        render.autoClear = false;
+      },
+      render: function (gl, matrix) {
+        if (!visible) return;
+        var mc = maplibregl.MercatorCoordinate.fromLngLat([pos.lng, pos.lat], 0);
+        var s = mc.meterInMercatorCoordinateUnits() * ESCALA;
+        var rotX = new THREE.Matrix4().makeRotationAxis(new THREE.Vector3(1, 0, 0), Math.PI / 2);
+        var rotY = new THREE.Matrix4().makeRotationAxis(new THREE.Vector3(0, 1, 0), -pos.h * Math.PI / 180);
+        var l = new THREE.Matrix4().makeTranslation(mc.x, mc.y, mc.z).scale(new THREE.Vector3(s, -s, s)).multiply(rotX).multiply(rotY);
+        camara.projectionMatrix = new THREE.Matrix4().fromArray(matrix).multiply(l);
+        if (render.resetState) render.resetState(); else render.state.reset();
+        render.render(escena, camara);
+      }
+    };
+    mapa.addLayer(capa);
+    return {
+      mover: function (p) { pos = p; visible = true; mapa.triggerRepaint(); },
+      tema: function (t) { matCarro.color.setHex(t === 'dia' ? 0x0891B2 : 0x22D3EE); mapa.triggerRepaint(); }
+    };
+  }
+
+  function crearFlecha() {
+    var el = document.createElement('div');
+    el.innerHTML = '<svg width="44" height="52" viewBox="0 0 44 52" aria-hidden="true"><path d="M22 2 L42 48 L22 38 L2 48 Z" fill="#22D3EE" stroke="#0A0F1A" stroke-width="3" stroke-linejoin="round"></path></svg>';
+    el.style.display = 'none';
+    marcador = new maplibregl.Marker({ element: el, rotationAlignment: 'map', pitchAlignment: 'map' }).setLngLat(BUENOS_AIRES).addTo(mapa);
+    return { mover: function (p) { el.style.display = 'block'; marcador.setLngLat([p.lng, p.lat]); marcador.setRotation(p.h); }, tema: function () {} };
+  }
+
+  mapa.on('load', function () {
+    mapaListo = true;
+    try { auto3d = (typeof THREE !== 'undefined') ? crearAuto3D() : crearFlecha(); }
+    catch (e) { console.log('Auto 3D no disponible: ' + e.message); auto3d = crearFlecha(); }
+    temaActual = null; aplicarTema();
+    aplicarVista(false);
+    if (actual) colocar(actual);
+  });
+  window.addEventListener('resize', function () { aplicarVista(false); });
+
+  // ================= Posición, movimiento suave y seguimiento =================
+  var ultima = null, actual = null, anim = null, rumbo = 0, enMovimiento = false, velocidad = null;
+
+  function colocar(p) {
+    if (auto3d) auto3d.mover(p);
+    if (siguiendo && mapaListo) mapa.jumpTo({ center: [p.lng, p.lat], bearing: vista === '2d' ? 0 : p.h });
+  }
+
+  function bucle() {
+    if (anim) {
+      var k = Math.min(1, (ahora() - anim.t0) / anim.dur);
+      actual = { lng: anim.de.lng + (anim.a.lng - anim.de.lng) * k, lat: anim.de.lat + (anim.a.lat - anim.de.lat) * k, h: interpAngulo(anim.de.h, anim.a.h, k) };
+      colocar(actual);
+      if (k >= 1) anim = null;
+    }
+    window.requestAnimationFrame(bucle);
+  }
+  window.requestAnimationFrame(bucle);
+
+  function nuevaPosicion(p) {
+    var primera = ultima === null;
+    velocidad = (p.speed !== null && p.speed !== undefined && p.speed >= 0) ? p.speed : null;
+    // El rumbo solo cambia en movimiento: parado, el GPS da direcciones al azar
+    if (velocidad !== null && velocidad > 1.5 && p.heading !== null && p.heading !== undefined && p.heading >= 0) rumbo = p.heading;
+    var destino = { lng: p.lng, lat: p.lat, h: rumbo };
+    actualizarViaje(p);
+    ultima = p;
+
+    $('vel').textContent = velocidad === null ? '--' : Math.round(velocidad * 3.6);
+    var moviendo = velocidad !== null && velocidad > VEL_MOVIMIENTO;
+    if (moviendo !== enMovimiento) { enMovimiento = moviendo; document.body.className = temaActual + (enMovimiento ? ' en-movimiento' : ''); if (enMovimiento) alMoverse(); }
+
+    if (primera || !actual) { actual = destino; colocar(actual); pedirClima(); aplicarTema(); }
+    else { anim = { de: { lng: actual.lng, lat: actual.lat, h: actual.h }, a: destino, t0: ahora(), dur: INTERVALO_POS_MS + 150 }; }
+  }
+
+  // ================= Viaje =================
+  var viaje = leer('viaje', { dist: 0, tMov: 0 });
+  var ultimoPuntoViaje = null;
+  function mostrarViaje(alt) {
+    $('vDist').textContent = (viaje.dist / 1000).toFixed(1).replace('.', ',');
+    $('vProm').textContent = viaje.tMov > 30 ? Math.round(viaje.dist / viaje.tMov * 3.6) : '--';
+    if (alt !== undefined) $('vAlt').textContent = alt === null ? '--' : Math.round(alt);
+  }
+  function actualizarViaje(p) {
+    var alt = (p.alt !== undefined && p.alt !== null) ? p.alt : null;
+    if (p.accuracy && p.accuracy <= 30) {
+      if (ultimoPuntoViaje) {
+        var d = distancia(ultimoPuntoViaje, p), dt = ((p.t || ahora()) - (ultimoPuntoViaje.t || ahora())) / 1000;
+        // Filtramos saltos raros del GPS y el "temblor" estando parado
+        if (dt > 0 && dt < 10 && d > 1.5 && d / dt < 70 && (p.speed === null || p.speed > 0.7)) {
+          viaje.dist += d; viaje.tMov += dt;
+          guardar('viaje', viaje);
+        }
+      }
+      ultimoPuntoViaje = { lat: p.lat, lng: p.lng, t: p.t || ahora() };
+    }
+    mostrarViaje(alt);
+  }
+  $('btnReiniciar').addEventListener('click', function () { viaje = { dist: 0, tMov: 0 }; guardar('viaje', viaje); mostrarViaje(); toast('Viaje reiniciado'); });
+  mostrarViaje();
+
+  // ================= Conexión con el iPhone =================
+  var fallas = 0;
+  function pedirPosicion() {
+    pedirJSON('/pos?t=' + ahora(), 2000, function (d) {
+      if (d && d.lat !== undefined && d.lat !== null) {
+        fallas = 0; aviso('');
+        if (ahora() - (d.t || ahora()) > 10000) estado('GPS del iPhone · sin señal reciente', '#FBBF24');
+        else estado('GPS del iPhone · conectado', '#4ADE80');
+        nuevaPosicion(d);
+      } else { estado('iPhone conectado · esperando GPS', '#FBBF24'); }
+    }, function () { fallas++; if (fallas >= 3) estado('Sin conexión con el iPhone', '#F87171'); });
+  }
+
+  // Si la app del iPhone descargó una versión nueva de esta pantalla, recargamos (solo con el auto detenido)
+  function revisarVersion() {
+    pedirJSON('/version?t=' + ahora(), 3000, function (d) {
+      if (d && d.version && d.version !== WEB_VERSION && !enMovimiento) location.reload();
+    });
+  }
+
+  // ================= Música (Apple Music del iPhone) =================
+  var musica = null, arteId = null, arteData = null;
+  function pintarPlay(playing) {
+    $('btnPlayMini').innerHTML = playing ? iconoPausa(22) : iconoPlay(22);
+    $('btnPlay').innerHTML = playing ? iconoPausa(36) : iconoPlay(36);
+  }
+  function mostrarArte(el, data) {
+    if (data) { el.style.backgroundImage = 'url(' + data + ')'; el.firstElementChild && (el.firstElementChild.style.display = 'none'); }
+    else { el.style.backgroundImage = ''; el.firstElementChild && (el.firstElementChild.style.display = ''); }
+  }
+  function mostrarMusica() {
+    var m = musica;
+    if (!m || m.disponible === false) {
+      $('tMini').textContent = 'Música'; $('aMini').textContent = m && m.motivo ? m.motivo : 'Sin datos del iPhone';
+      $('tGrande').textContent = 'Sin reproducción'; $('aGrande').textContent = m && m.motivo ? m.motivo : 'Sin datos del iPhone';
+      $('alGrande').textContent = ''; pintarPlay(false); return;
+    }
+    var titulo = m.title || 'Sin reproducción', artista = m.artist || (m.title ? '' : 'Poné música en la app Música del iPhone');
+    $('tMini').textContent = titulo; $('aMini').textContent = artista;
+    $('tGrande').textContent = titulo; $('aGrande').textContent = artista; $('alGrande').textContent = m.album || '';
+    $('tPos').textContent = fmtTiempo(m.position); $('tDur').textContent = fmtTiempo(m.duration);
+    $('barraMusica').style.width = m.duration ? Math.min(100, m.position / m.duration * 100) + '%' : '0';
+    pintarPlay(!!m.playing);
+    if (m.artworkId !== arteId) {
+      arteId = m.artworkId; arteData = null; mostrarArte($('arteMini'), null); mostrarArte($('arteGrande'), null);
+      if (arteId) pedirJSON('/music/art?t=' + ahora(), 5000, function (a) {
+        if (a && a.id === arteId && a.data) { arteData = a.data; mostrarArte($('arteMini'), arteData); mostrarArte($('arteGrande'), arteData); }
+      });
+    }
+  }
+  function pedirMusica() {
+    pedirJSON('/music?t=' + ahora(), 2500, function (d) { musica = d; mostrarMusica(); }, function () { musica = null; mostrarMusica(); });
+  }
+  function comandoMusica(a) {
+    if (musica && (a === 'toggle')) { musica.playing = !musica.playing; pintarPlay(musica.playing); }
+    pedirJSON('/music/cmd?a=' + a + '&t=' + ahora(), 3000, function () { setTimeout(pedirMusica, 400); }, function () { toast('No pude hablar con el iPhone'); });
+  }
+  function noPropagar(fn) { return function (e) { e.stopPropagation(); fn(); }; }
+  $('btnPlayMini').addEventListener('click', noPropagar(function () { comandoMusica('toggle'); }));
+  $('btnSigMini').addEventListener('click', noPropagar(function () { comandoMusica('next'); }));
+  $('btnPlay').addEventListener('click', function () { comandoMusica('toggle'); });
+  $('btnSig').addEventListener('click', function () { comandoMusica('next'); });
+  $('btnAnt').addEventListener('click', function () { comandoMusica('prev'); });
+  $('musicaMini').addEventListener('click', function () { abrirApp('musica'); });
+  pintarPlay(false);
+
+  // ================= Clima (Open-Meteo, gratis y sin clave) =================
+  var CODIGOS = [
+    [[0], 'Despejado', 'sol'], [[1, 2], 'Parcialmente nublado', 'nube-sol'], [[3], 'Nublado', 'nube'],
+    [[45, 48], 'Niebla', 'nube'], [[51, 53, 55, 56, 57], 'Llovizna', 'lluvia'], [[61, 63, 65, 66, 67], 'Lluvia', 'lluvia'],
+    [[71, 73, 75, 77], 'Nieve', 'nube'], [[80, 81, 82], 'Chaparrones', 'lluvia'], [[95, 96, 99], 'Tormenta', 'tormenta']
+  ];
+  var ICONOS = {
+    'sol': '<circle cx="12" cy="12" r="4.5" stroke="#F59E0B"></circle><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" stroke="#F59E0B"></path>',
+    'nube-sol': '<path d="M8 3v1.5M3.8 5.8l1 1M2.5 10H4M5.2 13.2a4 4 0 1 1 6.6-4.4" stroke="#F59E0B"></path><path d="M9 20h9a3.5 3.5 0 0 0 .4-7 5 5 0 0 0-9.6 1.4A3 3 0 0 0 9 20z" stroke="currentColor"></path>',
+    'nube': '<path d="M7 19h10a4 4 0 0 0 .5-8 6 6 0 0 0-11.5 1.6A3.2 3.2 0 0 0 7 19z" stroke="currentColor"></path>',
+    'lluvia': '<path d="M7 15h10a4 4 0 0 0 .5-8 6 6 0 0 0-11.5 1.6A3.2 3.2 0 0 0 7 15z" stroke="currentColor"></path><path d="M8 18l-1 3M12 18l-1 3M16 18l-1 3" stroke="#3B82F6"></path>',
+    'tormenta': '<path d="M7 15h10a4 4 0 0 0 .5-8 6 6 0 0 0-11.5 1.6A3.2 3.2 0 0 0 7 15z" stroke="currentColor"></path><path d="M12 15l-2 4h4l-2 4" stroke="#F59E0B"></path>'
+  };
+  function infoCodigo(c) { for (var i = 0; i < CODIGOS.length; i++) { if (CODIGOS[i][0].indexOf(c) !== -1) return CODIGOS[i]; } return [[c], 'Clima', 'nube']; }
+  function svgClima(codigo, tam) { return '<svg width="' + tam + '" height="' + tam + '" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + ICONOS[infoCodigo(codigo)[2]] + '</svg>'; }
+  var DIAS = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+
+  var ultimoClima = 0;
+  function pedirClima(forzar) {
+    if (!forzar && ahora() - ultimoClima < 60000) return;
+    ultimoClima = ahora();
+    var p = ultima || { lat: BUENOS_AIRES[1], lng: BUENOS_AIRES[0] };
+    var url = 'https://api.open-meteo.com/v1/forecast?latitude=' + p.lat.toFixed(3) + '&longitude=' + p.lng.toFixed(3) +
+      '&current=temperature_2m,weather_code&hourly=temperature_2m,precipitation_probability,weather_code' +
+      '&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=auto&forecast_days=7';
+    pedirJSON(url, 8000, function (d) {
+      if (!d || !d.current) return;
+      var info = infoCodigo(d.current.weather_code), temp = Math.round(d.current.temperature_2m) + '°';
+      var desc = info[1];
+      if (d.daily) desc += ' · Máx ' + Math.round(d.daily.temperature_2m_max[0]) + '° · Mín ' + Math.round(d.daily.temperature_2m_min[0]) + '°';
+      $('temp').textContent = temp; $('iconoClima').innerHTML = svgClima(d.current.weather_code, 44); $('descClima').textContent = desc;
+      $('tempG').textContent = temp; $('iconoClimaG').innerHTML = svgClima(d.current.weather_code, 96); $('descClimaG').textContent = desc;
+      var html = '';
+      if (d.hourly && d.hourly.time) {
+        var ini = 0;
+        for (var i = 0; i < d.hourly.time.length; i++) { if (d.hourly.time[i] > d.current.time) { ini = i; break; } }
+        for (var k = ini; k < ini + 12 && k < d.hourly.time.length; k++) {
+          var pr = d.hourly.precipitation_probability ? d.hourly.precipitation_probability[k] : null;
+          html += '<div class="hora-item"><div class="h">' + d.hourly.time[k].slice(11, 13) + ' h</div>' + svgClima(d.hourly.weather_code[k], 26) +
+            '<div class="t">' + Math.round(d.hourly.temperature_2m[k]) + '°</div><div class="p">' + (pr ? pr + '%' : '') + '</div></div>';
+        }
+      }
+      $('horasG').innerHTML = html;
+      html = '';
+      if (d.daily && d.daily.time) {
+        for (var j = 0; j < d.daily.time.length; j++) {
+          var partes = d.daily.time[j].split('-'), fecha = new Date(+partes[0], +partes[1] - 1, +partes[2]);
+          var nombre = j === 0 ? 'Hoy' : (j === 1 ? 'Mañana' : DIAS[fecha.getDay()]);
+          html += '<div class="dia-fila"><span class="nombre">' + nombre + '</span>' + svgClima(d.daily.weather_code[j], 28) +
+            '<span class="lluvia">' + (d.daily.precipitation_probability_max[j] ? d.daily.precipitation_probability_max[j] + '%' : '') + '</span>' +
+            '<span class="rango"><span>' + Math.round(d.daily.temperature_2m_min[j]) + '°</span>' + Math.round(d.daily.temperature_2m_max[j]) + '°</span></div>';
+        }
+      }
+      $('diasG').innerHTML = html;
+    }, function () { $('descClima').textContent = 'Sin datos del clima'; });
+  }
+  $('climaMini').addEventListener('click', function () { abrirApp('clima'); });
+
+  // ================= Dock y pantallas =================
+  var appAbierta = 'mapa';
+  function abrirApp(app) {
+    if ((app === 'videos' || app === 'juego') && enMovimiento) { toast('Disponible con el auto detenido'); return; }
+    if (appAbierta === 'videos' && app !== 'videos') detenerVideo();
+    if (appAbierta === 'juego' && app !== 'juego') detenerJuego();
+    appAbierta = app;
+    var pantallas = document.querySelectorAll('.pantalla');
+    for (var i = 0; i < pantallas.length; i++) pantallas[i].className = 'pantalla' + (pantallas[i].id === 'p-' + app ? ' visible' : '');
+    var botones = document.querySelectorAll('.dock-btn');
+    for (var j = 0; j < botones.length; j++) {
+      var b = botones[j]; b.className = 'dock-btn' + (b.getAttribute('data-app') === 'videos' || b.getAttribute('data-app') === 'juego' ? ' bloqueable' : '') + (b.getAttribute('data-app') === app ? ' activo' : '');
+    }
+    if (app === 'clima') pedirClima(true);
+    if (app === 'musica') pedirMusica();
+    if (app === 'videos') pintarVideos();
+    if (app === 'juego') iniciarJuego();
+    if (app === 'mapa') setTimeout(function () { mapa.resize(); }, 50);
+  }
+  var botonesDock = document.querySelectorAll('.dock-btn');
+  for (var bi = 0; bi < botonesDock.length; bi++) {
+    botonesDock[bi].addEventListener('click', function () { abrirApp(this.getAttribute('data-app')); });
+  }
+  var cerrar = document.querySelectorAll('[data-cerrar]');
+  for (var ci = 0; ci < cerrar.length; ci++) cerrar[ci].addEventListener('click', function () { abrirApp('mapa'); });
+
+  function alMoverse() {
+    if (appAbierta === 'videos' || appAbierta === 'juego') {
+      abrirApp('mapa');
+      toast('Se pausó porque el auto está en movimiento');
+    }
+  }
+
+  // ================= Videos =================
+  var videos = leer('videos', []);
+  function idYoutube(url) {
+    var m = String(url).match(/(?:youtu\.be\/|v=|\/shorts\/|\/embed\/)([A-Za-z0-9_-]{11})/);
+    return m ? m[1] : null;
+  }
+  function pintarVideos() {
+    var lista = $('listaVideos'); lista.innerHTML = '';
+    if (!videos.length) { lista.innerHTML = '<div class="nota">Todavía no agregaste videos.</div>'; return; }
+    videos.forEach(function (v, i) {
+      var fila = document.createElement('div'); fila.className = 'video-fila';
+      var nombre = document.createElement('div'); nombre.className = 'nombre'; nombre.textContent = v.nombre;
+      var ver = document.createElement('button'); ver.type = 'button'; ver.textContent = 'Ver';
+      ver.addEventListener('click', function () { reproducirVideo(v.id); });
+      var quitar = document.createElement('button'); quitar.type = 'button'; quitar.textContent = 'Quitar';
+      quitar.addEventListener('click', function () { videos.splice(i, 1); guardar('videos', videos); pintarVideos(); });
+      fila.appendChild(nombre); fila.appendChild(ver); fila.appendChild(quitar); lista.appendChild(fila);
+    });
+  }
+  function reproducirVideo(id) {
+    if (enMovimiento) { toast('Disponible con el auto detenido'); return; }
+    var marco = $('marcoVideo'); marco.className = 'video-marco';
+    marco.innerHTML = '<iframe src="https://www.youtube-nocookie.com/embed/' + id + '?playsinline=1&autoplay=1" allow="autoplay; encrypted-media; fullscreen" allowfullscreen title="Video"></iframe>';
+  }
+  function detenerVideo() { var marco = $('marcoVideo'); marco.innerHTML = ''; marco.className = 'video-marco oculto'; }
+  $('btnAgregarVideo').addEventListener('click', function () {
+    var url = $('inputVideo').value.trim(), id = idYoutube(url);
+    if (!id) { toast('No reconozco ese link de YouTube'); return; }
+    videos.unshift({ id: id, nombre: url.replace(/^https?:\/\/(www\.)?/, '') });
+    videos = videos.slice(0, 30); guardar('videos', videos);
+    $('inputVideo').value = ''; $('inputVideo').blur(); pintarVideos();
+  });
+
+  // ================= Juego: esquivar autos =================
+  var juego = null;
+  function iniciarJuego() {
+    var lienzo = $('lienzoJuego'), cuerpo = $('cuerpoJuego');
+    var dpr = window.devicePixelRatio || 1, w = cuerpo.clientWidth, h = cuerpo.clientHeight;
+    lienzo.width = w * dpr; lienzo.height = h * dpr; lienzo.style.width = w + 'px'; lienzo.style.height = h + 'px';
+    var ctx = lienzo.getContext('2d'); ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    var anchoRuta = Math.min(520, w * 0.6), x0 = (w - anchoRuta) / 2, carril = anchoRuta / 3;
+    juego = { ctx: ctx, w: w, h: h, x0: x0, carril: carril, jugador: 1, xJugador: x0 + carril * 1.5, obstaculos: [], vel: 260,
+      puntos: 0, ultimo: null, desde: 0, lineas: 0, vivo: true, activo: true, record: leer('recordJuego', 0) };
+    window.requestAnimationFrame(cuadroJuego);
+  }
+  function detenerJuego() { if (juego) juego.activo = false; }
+  function dibujarAuto(ctx, x, y, color) {
+    ctx.fillStyle = color; ctx.fillRect(x - 26, y - 46, 52, 92);
+    ctx.fillStyle = 'rgba(10,15,26,0.85)'; ctx.fillRect(x - 20, y - 22, 40, 34);
+    ctx.fillStyle = '#111'; ctx.fillRect(x - 31, y - 34, 6, 20); ctx.fillRect(x + 25, y - 34, 6, 20); ctx.fillRect(x - 31, y + 16, 6, 20); ctx.fillRect(x + 25, y + 16, 6, 20);
+  }
+  function cuadroJuego(t) {
+    var j = juego; if (!j || !j.activo) return;
+    if (j.ultimo === null) j.ultimo = t;
+    var dt = Math.min(0.05, (t - j.ultimo) / 1000); j.ultimo = t;
+    var ctx = j.ctx, oscuro = temaActual !== 'dia';
+    if (j.vivo) {
+      j.vel += dt * 8; j.puntos += dt * 10; j.lineas = (j.lineas + j.vel * dt) % 60; j.desde += dt;
+      var objetivo = j.x0 + j.carril * (j.jugador + 0.5); j.xJugador += (objetivo - j.xJugador) * Math.min(1, dt * 14);
+      if (j.desde > Math.max(0.45, 1.1 - j.vel / 1200)) {
+        j.desde = 0; var libre = Math.floor(Math.random() * 3);
+        for (var c = 0; c < 3; c++) if (c !== libre && Math.random() < 0.55) j.obstaculos.push({ c: c, y: -60, color: ['#F472B6', '#A3E635', '#FBBF24', '#F87171'][Math.floor(Math.random() * 4)] });
+      }
+      for (var i = j.obstaculos.length - 1; i >= 0; i--) {
+        var o = j.obstaculos[i]; o.y += j.vel * dt;
+        var ox = j.x0 + j.carril * (o.c + 0.5);
+        if (Math.abs(ox - j.xJugador) < 46 && Math.abs(o.y - (j.h - 90)) < 86) { j.vivo = false; if (j.puntos > j.record) { j.record = Math.floor(j.puntos); guardar('recordJuego', j.record); } }
+        if (o.y > j.h + 60) j.obstaculos.splice(i, 1);
+      }
+    }
+    ctx.fillStyle = oscuro ? '#0B0F17' : '#DDE3EA'; ctx.fillRect(0, 0, j.w, j.h);
+    ctx.fillStyle = oscuro ? '#1A2338' : '#9AA5B1'; ctx.fillRect(j.x0, 0, j.carril * 3, j.h);
+    ctx.fillStyle = 'rgba(255,255,255,0.5)';
+    for (var l = 1; l < 3; l++) for (var y = -60 + j.lineas; y < j.h; y += 60) ctx.fillRect(j.x0 + j.carril * l - 2, y, 4, 30);
+    j.obstaculos.forEach(function (o) { dibujarAuto(ctx, j.x0 + j.carril * (o.c + 0.5), o.y, o.color); });
+    dibujarAuto(ctx, j.xJugador, j.h - 90, '#22D3EE');
+    $('puntaje').textContent = Math.floor(j.puntos) + ' pts · récord ' + j.record;
+    if (!j.vivo) {
+      ctx.fillStyle = 'rgba(0,0,0,0.55)'; ctx.fillRect(0, 0, j.w, j.h);
+      ctx.fillStyle = '#FFFFFF'; ctx.textAlign = 'center'; ctx.font = 'bold 40px -apple-system, Helvetica, sans-serif';
+      ctx.fillText('¡Choque!', j.w / 2, j.h / 2 - 20);
+      ctx.font = '20px -apple-system, Helvetica, sans-serif'; ctx.fillText('Tocá para jugar de nuevo', j.w / 2, j.h / 2 + 20);
+    }
+    window.requestAnimationFrame(cuadroJuego);
+  }
+  function tocarJuego(x) {
+    if (!juego) return;
+    if (!juego.vivo) { iniciarJuego(); return; }
+    if (x < juego.w / 2) juego.jugador = Math.max(0, juego.jugador - 1); else juego.jugador = Math.min(2, juego.jugador + 1);
+  }
+  $('lienzoJuego').addEventListener('touchstart', function (e) { e.preventDefault(); var r = this.getBoundingClientRect(); tocarJuego(e.touches[0].clientX - r.left); }, { passive: false });
+  $('lienzoJuego').addEventListener('mousedown', function (e) { var r = this.getBoundingClientRect(); tocarJuego(e.clientX - r.left); });
+
+  // ================= Modo demo (sin iPhone: agregá ?demo=1 a la dirección) =================
+  function iniciarDemo() {
+    estado('Modo demo · recorrido simulado', '#93C5FD');
+    var puntos = [[-58.3923, -34.6043], [-58.3929, -34.5992], [-58.3935, -34.5957], [-58.3928, -34.5915], [-58.3906, -34.5868]];
+    var ruta = puntos.concat(puntos.slice(0, -1).reverse()), tramos = [], total = 0, i;
+    function rumboEntre(a, b) {
+      var rad = Math.PI / 180, y = Math.sin((b[0] - a[0]) * rad) * Math.cos(b[1] * rad);
+      var x = Math.cos(a[1] * rad) * Math.sin(b[1] * rad) - Math.sin(a[1] * rad) * Math.cos(b[1] * rad) * Math.cos((b[0] - a[0]) * rad);
+      return (Math.atan2(y, x) / rad + 360) % 360;
+    }
+    for (i = 0; i < ruta.length - 1; i++) {
+      var d = distancia({ lng: ruta[i][0], lat: ruta[i][1] }, { lng: ruta[i + 1][0], lat: ruta[i + 1][1] });
+      tramos.push({ a: ruta[i], b: ruta[i + 1], d: d, ini: total, r: rumboEntre(ruta[i], ruta[i + 1]) }); total += d;
+    }
+    var metros = 0, vel = 12, parado = false;
+    setInterval(function () {
+      // Cada tanto se detiene unos segundos, para probar el bloqueo de videos y juego
+      parado = (Math.floor(ahora() / 20000) % 3) === 2;
+      var v = parado ? 0 : vel;
+      metros = (metros + v * INTERVALO_POS_MS / 1000) % total;
+      for (var j = 0; j < tramos.length; j++) {
+        var t = tramos[j];
+        if (metros <= t.ini + t.d) {
+          var f = (metros - t.ini) / t.d;
+          nuevaPosicion({ lat: t.a[1] + (t.b[1] - t.a[1]) * f, lng: t.a[0] + (t.b[0] - t.a[0]) * f, speed: v, heading: t.r, accuracy: 5, alt: 25, t: ahora() });
+          return;
+        }
+      }
+    }, INTERVALO_POS_MS);
+    musica = { disponible: true, title: 'Tema de ejemplo', artist: 'Artista', album: 'Disco', playing: true, duration: 214, position: 61, artworkId: '' };
+    mostrarMusica();
+  }
+
+  // ================= Arranque =================
+  aplicarTema();
+  setInterval(aplicarTema, 60000);
+  setInterval(function () { pedirClima(true); }, 15 * 60000);
+  pedirClima(true);
+  if (DEMO) { iniciarDemo(); }
+  else {
+    pedirPosicion(); setInterval(pedirPosicion, INTERVALO_POS_MS);
+    pedirMusica(); setInterval(pedirMusica, 1500);
+    setInterval(revisarVersion, 30000);
+  }
+})();
+</script>
+</body>
+</html>
