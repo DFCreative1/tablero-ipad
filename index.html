@@ -64,32 +64,41 @@
     background: var(--peligro-bg); color: var(--peligro-texto); font-size: 15px; display: none; }
 
   /* ---------- Columna ---------- */
-  .columna { width: 360px; flex: 0 0 360px; box-sizing: border-box; padding: 20px 20px 16px; display: flex; flex-direction: column;
+  .columna { width: 320px; flex: 0 0 320px; box-sizing: border-box; padding: 18px 18px 14px; display: flex; flex-direction: column;
     background: var(--col); border-left: 1px solid var(--borde); overflow: hidden; }
   .cabecera { display: flex; align-items: flex-end; justify-content: space-between; }
   .hora { font-size: 76px; font-weight: 600; line-height: 0.9; letter-spacing: -1px; }
   .fecha { font-size: 15px; color: var(--suave); margin-top: 8px; }
-  .clima-mini { display: flex; flex-direction: column; align-items: flex-end; border: 0; background: transparent; text-align: right; }
-  .clima-mini .fila { display: flex; align-items: center; }
-  .clima-mini .temp { font-size: 40px; font-weight: 600; line-height: 1; margin-left: 6px; }
-  .clima-mini .rango { font-size: 13px; color: var(--suave); margin-top: 6px; }
+  .clima-bloque { display: block; width: 100%; border: 0; background: transparent; text-align: left; color: var(--texto); }
+  .clima-bloque .fila { display: flex; align-items: center; }
+  .clima-bloque .temp { font-size: 60px; font-weight: 600; line-height: 0.9; margin-left: 8px; color: #FFFFFF; }
+  body.dia .clima-bloque .temp { color: var(--texto); }
+  .clima-bloque .detalle { margin-left: 12px; min-width: 0; }
+  .clima-bloque .cond { font-size: 14px; font-weight: 500; line-height: 1.25; }
+  .clima-bloque .rango { font-size: 13px; color: var(--suave); margin-top: 2px; }
+  .horas-mini { display: flex; margin-top: 14px; }
+  .hm { flex: 1 1 0; display: flex; flex-direction: column; align-items: center; }
+  .hm .h { font-size: 12px; color: var(--suave); }
+  .hm svg { margin: 4px 0 2px; }
+  .hm .t { font-size: 17px; font-weight: 600; }
   .linea { height: 1px; background: var(--borde); margin: 20px 0 16px; }
   .viaje-cab { display: flex; align-items: baseline; justify-content: space-between; }
   .viaje-cab span { font-size: 15px; font-weight: 600; }
   .viaje-cab button { border: 0; background: transparent; color: var(--acento); font-size: 13px; font-weight: 500; padding: 6px 0 6px 12px; }
   .stats { display: flex; margin-top: 8px; }
   .stat { flex: 1 1 0; display: flex; flex-direction: column; }
-  .stat + .stat { border-left: 1px solid var(--ambar-tenue); padding-left: 14px; margin-left: 14px; }
-  .stat .v { font-size: 30px; font-weight: 600; color: var(--ambar-claro); line-height: 1.1; }
-  .stat .e { font-size: 12px; color: var(--suave); }
+  .stat + .stat { border-left: 1px solid var(--ambar-tenue); padding-left: 10px; margin-left: 10px; }
+  .stat .v { font-size: 28px; font-weight: 600; color: var(--ambar-claro); line-height: 1.1; }
+  .stat .v small { font-size: 13px; font-weight: 500; color: var(--suave); }
+  .stat .e { font-size: 12px; color: var(--suave); white-space: nowrap; }
   .relleno { flex: 1 1 auto; }
 
   .musica { border-radius: 20px; background: var(--violeta-bg); border: 1px solid var(--violeta-borde); padding: 16px; }
   .musica .fila { display: flex; align-items: center; }
   .arte { flex-shrink: 0; border-radius: 12px; background-color: #7240D9; background-size: cover; background-position: center;
     display: flex; align-items: center; justify-content: center; overflow: hidden; }
-  .musica .arte { width: 84px; height: 84px; }
-  .musica .info { margin-left: 14px; min-width: 0; flex: 1 1 auto; }
+  .musica .arte { width: 68px; height: 68px; }
+  .musica .info { margin-left: 12px; min-width: 0; flex: 1 1 auto; }
   .musica .t { font-size: 18px; font-weight: 600; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .musica .a { font-size: 14px; color: var(--violeta-suave); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .progreso { height: 4px; border-radius: 4px; background: var(--violeta-borde); margin-top: 16px; overflow: hidden; }
@@ -216,20 +225,27 @@
           <div class="hora num" id="hora">--:--</div>
           <div class="fecha" id="fecha"></div>
         </div>
-        <button type="button" class="clima-mini" id="climaMini" aria-label="Abrir clima">
-          <span class="fila"><span id="iconoClima"></span><span class="temp num" id="temp">--°</span></span>
-          <span class="rango num" id="descClima">Cargando…</span>
-        </button>
       </div>
 
       <div class="linea"></div>
 
       <div class="viaje-cab"><span>Viaje de hoy</span><button type="button" id="btnReiniciar">Reiniciar</button></div>
       <div class="stats">
-        <div class="stat"><span class="v num" id="vDist">0,0</span><span class="e">km recorridos</span></div>
-        <div class="stat"><span class="v num" id="vProm">--</span><span class="e">km/h promedio</span></div>
-        <div class="stat"><span class="v num" id="vAlt">--</span><span class="e">m de altitud</span></div>
+        <div class="stat"><span class="v num"><span id="vDist">0,0</span><small> km</small></span><span class="e">recorrido</span></div>
+        <div class="stat"><span class="v num"><span id="vProm">--</span><small> km/h</small></span><span class="e">promedio</span></div>
+        <div class="stat"><span class="v num"><span id="vAlt">--</span><small> m</small></span><span class="e">altitud</span></div>
       </div>
+
+      <div class="linea"></div>
+
+      <button type="button" class="clima-bloque" id="climaMini" aria-label="Abrir clima">
+        <span class="fila">
+          <span id="iconoClima"></span>
+          <span class="temp num" id="temp">--°</span>
+          <span class="detalle"><span class="cond" id="descClima" style="display: block">Cargando clima…</span><span class="rango num" id="rangoClima" style="display: block"></span></span>
+        </span>
+        <span class="horas-mini num" id="horasMini"></span>
+      </button>
 
       <div class="relleno"></div>
 
@@ -331,7 +347,7 @@
 (function () {
   'use strict';
 
-  var WEB_VERSION = '2.1.0';
+  var WEB_VERSION = '2.2.0';
   var INTERVALO_POS_MS = 500;
   var BUENOS_AIRES = [-58.3816, -34.6037];
   var DEMO = /[?&]demo=1/.test(location.search);
@@ -548,7 +564,7 @@
     escena.add(new THREE.AmbientLight(0xffffff, 0.75));
     var sol = new THREE.DirectionalLight(0xffffff, 0.6); sol.position.set(30, 80, 40); escena.add(sol);
 
-    var matCarro = new THREE.MeshLambertMaterial({ color: 0x3BE0F5 });
+    var matCarro = new THREE.MeshLambertMaterial({ color: 0xF4F6F8 });
     var matVidrio = new THREE.MeshLambertMaterial({ color: 0x0B2230 });
     var matRueda = new THREE.MeshLambertMaterial({ color: 0x0A0F18 });
     var matLuz = new THREE.MeshBasicMaterial({ color: 0xFFF7D6 });
@@ -598,13 +614,13 @@
     mapa.addLayer(capa);
     return {
       mover: function (p) { pos = p; visible = true; mapa.triggerRepaint(); },
-      tema: function (t) { matCarro.color.setHex(t === 'dia' ? 0x0A8FA6 : 0x3BE0F5); mapa.triggerRepaint(); }
+      tema: function (t) { matCarro.color.setHex(t === 'dia' ? 0xFFFFFF : 0xF4F6F8); mapa.triggerRepaint(); }
     };
   }
 
   function crearFlecha() {
     var el = document.createElement('div');
-    el.innerHTML = '<svg width="44" height="52" viewBox="0 0 44 52" aria-hidden="true"><path d="M22 2 L42 48 L22 38 L2 48 Z" fill="#3BE0F5" stroke="#0A0F1A" stroke-width="3" stroke-linejoin="round"></path></svg>';
+    el.innerHTML = '<svg width="44" height="52" viewBox="0 0 44 52" aria-hidden="true"><path d="M22 2 L42 48 L22 38 L2 48 Z" fill="#F4F6F8" stroke="#0A0F1A" stroke-width="3" stroke-linejoin="round"></path></svg>';
     el.style.display = 'none';
     marcador = new maplibregl.Marker({ element: el, rotationAlignment: 'map', pitchAlignment: 'map' }).setLngLat(BUENOS_AIRES).addTo(mapa);
     return { mover: function (p) { el.style.display = 'block'; marcador.setLngLat([p.lng, p.lat]); marcador.setRotation(p.h); }, tema: function () {} };
@@ -783,8 +799,9 @@
       var info = infoCodigo(d.current.weather_code), temp = Math.round(d.current.temperature_2m) + '°';
       var desc = info[1];
       if (d.daily) desc += ' · Máx ' + Math.round(d.daily.temperature_2m_max[0]) + '° · Mín ' + Math.round(d.daily.temperature_2m_min[0]) + '°';
-      var rango = d.daily ? Math.round(d.daily.temperature_2m_max[0]) + '° / ' + Math.round(d.daily.temperature_2m_min[0]) + '°' : info[1];
-      $('temp').textContent = temp; $('iconoClima').innerHTML = svgClima(d.current.weather_code, 36); $('descClima').textContent = rango;
+      var rango = d.daily ? Math.round(d.daily.temperature_2m_max[0]) + '° / ' + Math.round(d.daily.temperature_2m_min[0]) + '°' : '';
+      $('temp').textContent = temp; $('iconoClima').innerHTML = svgClima(d.current.weather_code, 46);
+      $('descClima').textContent = info[1]; $('rangoClima').textContent = rango;
       $('tempG').textContent = temp; $('iconoClimaG').innerHTML = svgClima(d.current.weather_code, 96); $('descClimaG').textContent = desc;
       var html = '';
       if (d.hourly && d.hourly.time) {
@@ -797,6 +814,14 @@
         }
       }
       $('horasG').innerHTML = html;
+      var mini = '';
+      if (d.hourly && d.hourly.time) {
+        for (var q = ini; q < ini + 6 && q < d.hourly.time.length; q++) {
+          mini += '<span class="hm"><span class="h">' + d.hourly.time[q].slice(11, 13) + ' h</span>' + svgClima(d.hourly.weather_code[q], 24) +
+            '<span class="t">' + Math.round(d.hourly.temperature_2m[q]) + '°</span></span>';
+        }
+      }
+      $('horasMini').innerHTML = mini;
       html = '';
       if (d.daily && d.daily.time) {
         for (var j = 0; j < d.daily.time.length; j++) {
@@ -808,7 +833,7 @@
         }
       }
       $('diasG').innerHTML = html;
-    }, function () { $('descClima').textContent = 'Sin clima'; });
+    }, function () { $('descClima').textContent = 'Sin datos del clima'; });
   }
   $('climaMini').addEventListener('click', function () { abrirApp('clima'); });
 
