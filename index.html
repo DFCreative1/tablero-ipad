@@ -514,7 +514,7 @@
 (function () {
   'use strict';
 
-  var WEB_VERSION = '2.5.0';
+  var WEB_VERSION = '2.5.1';
   var INTERVALO_POS_MS = 500;
   var BUENOS_AIRES = [-58.3816, -34.6037];
   var DEMO = /[?&]demo=1/.test(location.search);
@@ -1603,6 +1603,23 @@
     toast('La ruta queda en el botón Ruta de abajo');
   });
 
+  // ================= Pantalla de arranque guardada en el iPad =================
+  // El acceso directo abre /inicio, que el iPad guarda en su memoria para poder abrirlo sin conexión.
+  // Para que termine de guardarse, la cargamos escondida mientras se usa el tablero
+  // (sin scripts, así no salta al tablero adentro del cuadro escondido).
+  function guardarArranque() {
+    try {
+      var f = document.createElement('iframe');
+      f.setAttribute('sandbox', 'allow-same-origin');
+      f.setAttribute('aria-hidden', 'true');
+      f.tabIndex = -1;
+      f.style.cssText = 'position:absolute;left:-20px;top:-20px;width:1px;height:1px;border:0;opacity:0;pointer-events:none';
+      f.src = '/inicio';
+      document.body.appendChild(f);
+      setTimeout(function () { if (f.parentNode) f.parentNode.removeChild(f); }, 90000);
+    } catch (e) {}
+  }
+
   // ================= Modo demo (sin iPhone: agregá ?demo=1 a la dirección) =================
   function iniciarDemo() {
     estado('Modo demo · recorrido simulado', '#93C5FD');
@@ -1646,6 +1663,7 @@
     pedirPosicion(); setInterval(pedirPosicion, INTERVALO_POS_MS);
     pedirMusica(); setInterval(pedirMusica, 1500);
     pedirViaje(); setInterval(pedirViaje, 3000);
+    setTimeout(guardarArranque, 8000);
     setInterval(revisarVersion, 30000);
   }
 })();
