@@ -185,11 +185,15 @@
   /* ---------- Luces ---------- */
   .columna { position: relative; }
   .columna::before { content: ''; position: absolute; left: -1px; top: 0; bottom: 0; width: 2px; background: var(--ambar);
-    opacity: 0.5; box-shadow: 0 0 16px 2px var(--ambar); pointer-events: none; }
+    opacity: var(--luz-alfa, 0.5); box-shadow: 0 0 var(--luz-blur, 16px) 2px var(--ambar); pointer-events: none; }
   .dock { position: relative; }
   .dock::before { content: ''; position: absolute; left: 0; right: 0; top: -1px; height: 2px; background: var(--ambar);
-    opacity: 0.5; box-shadow: 0 0 16px 2px var(--ambar); pointer-events: none; }
-  body.dia .columna::before, body.dia .dock::before { opacity: 0.3; box-shadow: none; }
+    opacity: var(--luz-alfa, 0.5); box-shadow: 0 0 var(--luz-blur, 16px) 2px var(--ambar); pointer-events: none; }
+  body.dia .columna::before, body.dia .dock::before { opacity: var(--luz-alfa-dia, 0.3); box-shadow: none; }
+  .seg-intensidad button svg { display: block; margin: 0 auto; }
+  .seg-intensidad button rect { fill: var(--borde); }
+  .seg-intensidad button.activo rect.on, .seg-intensidad button rect.on { fill: var(--suave); }
+  .seg-intensidad button.activo rect.on { fill: var(--ambar); }
   html.sin-ambiente .columna::before, html.sin-ambiente .dock::before { display: none; }
   /* Íconos del dock en el tono de la luz ambiente */
   html.iconos-ambiente .dock-btn .ficha { background: var(--ambar-fondo) !important; box-shadow: inset 0 0 0 1.5px var(--ambar); }
@@ -228,6 +232,8 @@
       radial-gradient(ellipse 75% 40% at 50% 0%, rgba(var(--amb-rgb), var(--amb-alfa)) 0%, rgba(var(--amb-rgb), 0) 70%),
       linear-gradient(to bottom, rgba(var(--bg-rgb), 0.94) 0%, rgba(var(--bg-rgb), 0.6) 13%, rgba(var(--bg-rgb), 0) 36%),
       radial-gradient(ellipse 120% 95% at 50% 62%, rgba(0, 0, 0, 0) 55%, rgba(0, 0, 0, var(--vineta)) 100%); }
+  body.noche { --ruta: #38BDF8; }
+  body.dia { --ruta: #2563EB; }
   body.noche { --bg-rgb: 10, 19, 34; --amb-alfa: 0.2; --vineta: 0.38; }
   body.dia { --bg-rgb: 233, 238, 245; --amb-alfa: 0.12; --vineta: 0.08; }
 
@@ -243,6 +249,32 @@
   .resumen .celda .v small { font-size: 15px; font-weight: 500; color: var(--suave); }
   .resumen .celda .e { font-size: 13px; color: var(--suave); }
   .resumen button { width: 100%; height: 50px; margin-top: 14px; border: 0; border-radius: 14px; background: var(--panel2); font-size: 16px; font-weight: 600; }
+
+  /* ---------- Ruta al destino (dibujada en nuestro mapa) ---------- */
+  .ruta-info { position: absolute; left: 16px; top: 64px; width: 300px; box-sizing: border-box; padding: 12px 10px 12px 14px; border-radius: 18px; z-index: 6;
+    background: var(--panel); border: 1px solid var(--borde); box-shadow: var(--sombra); display: -webkit-box; display: flex; align-items: center; }
+  .ruta-info .bandera { flex: 0 0 40px; width: 40px; height: 40px; border-radius: 12px; display: flex; align-items: center; justify-content: center; margin-right: 12px; }
+  .ruta-info .txt { flex: 1 1 auto; min-width: 0; }
+  .ruta-info .nombre-dest { font-size: 15px; color: var(--suave); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ruta-info .datos { font-size: 22px; font-weight: 600; margin-top: 1px; white-space: nowrap; }
+  .ruta-info .datos small { font-size: 14px; font-weight: 500; color: var(--suave); }
+  .ruta-info .datos .sep { color: var(--borde); margin: 0 6px; font-weight: 400; }
+  .ruta-info .quitar { flex: 0 0 40px; width: 40px; height: 40px; border: 0; border-radius: 12px; background: transparent; margin-left: 6px; }
+  body.noche .ruta-info .bandera { background: #0E3B5C; }
+  body.dia .ruta-info .bandera { background: #DCEBFF; }
+
+  /* ---------- Viaje de Waze recibido desde el iPhone ---------- */
+  .aviso-viaje { position: absolute; left: 50%; top: 84px; width: 420px; box-sizing: border-box; padding: 16px 18px; border-radius: 20px; z-index: 9;
+    background: var(--panel); border: 1px solid var(--borde); box-shadow: var(--sombra); display: -webkit-box; display: flex; align-items: center;
+    -webkit-transform: translateX(-50%); transform: translateX(-50%); }
+  .aviso-viaje .ficha-ruta { flex: 0 0 52px; width: 52px; height: 52px; border-radius: 15px; background: #2563EB; display: flex; align-items: center; justify-content: center; margin-right: 14px; }
+  .aviso-viaje .txt { flex: 1 1 auto; min-width: 0; }
+  .aviso-viaje .txt b { display: block; font-size: 18px; font-weight: 600; }
+  .aviso-viaje .txt span { display: block; font-size: 14px; color: var(--suave); margin-top: 2px; }
+  .aviso-viaje .btns { flex: 0 0 auto; margin-left: 12px; }
+  .aviso-viaje button { display: block; width: 112px; height: 44px; border: 0; border-radius: 13px; font-size: 16px; font-weight: 600; }
+  .aviso-viaje .abrir { background: #2563EB; color: #FFFFFF; }
+  .aviso-viaje .luego { background: transparent; color: var(--suave); margin-top: 4px; height: 34px; font-size: 14px; }
 
   button:focus { outline: none; }
   button:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px; }
@@ -293,6 +325,14 @@
           <button type="button" class="swatch" data-color="verde" aria-label="Verde"><span style="background: #4ADE9A"></span></button>
           <button type="button" class="swatch" data-color="rojo" aria-label="Rojo"><span style="background: #FF3B3B"></span></button>
         </div>
+        <div class="pl-etq">Intensidad de la luz</div>
+        <div class="segmentos seg-intensidad" id="segIntensidad">
+          <button type="button" data-int="1" aria-label="Intensidad Mínima"><svg width="30" height="18" viewBox="0 0 30 18" aria-hidden="true"><rect class="on" x="2" y="12" width="4" height="6" rx="1.5"></rect><rect x="8" y="9" width="4" height="9" rx="1.5"></rect><rect x="14" y="6" width="4" height="12" rx="1.5"></rect><rect x="20" y="3" width="4" height="15" rx="1.5"></rect><rect x="26" y="0" width="4" height="18" rx="1.5"></rect></svg></button>
+          <button type="button" data-int="2" aria-label="Intensidad Suave"><svg width="30" height="18" viewBox="0 0 30 18" aria-hidden="true"><rect class="on" x="2" y="12" width="4" height="6" rx="1.5"></rect><rect class="on" x="8" y="9" width="4" height="9" rx="1.5"></rect><rect x="14" y="6" width="4" height="12" rx="1.5"></rect><rect x="20" y="3" width="4" height="15" rx="1.5"></rect><rect x="26" y="0" width="4" height="18" rx="1.5"></rect></svg></button>
+          <button type="button" data-int="3" aria-label="Intensidad Media"><svg width="30" height="18" viewBox="0 0 30 18" aria-hidden="true"><rect class="on" x="2" y="12" width="4" height="6" rx="1.5"></rect><rect class="on" x="8" y="9" width="4" height="9" rx="1.5"></rect><rect class="on" x="14" y="6" width="4" height="12" rx="1.5"></rect><rect x="20" y="3" width="4" height="15" rx="1.5"></rect><rect x="26" y="0" width="4" height="18" rx="1.5"></rect></svg></button>
+          <button type="button" data-int="4" aria-label="Intensidad Fuerte"><svg width="30" height="18" viewBox="0 0 30 18" aria-hidden="true"><rect class="on" x="2" y="12" width="4" height="6" rx="1.5"></rect><rect class="on" x="8" y="9" width="4" height="9" rx="1.5"></rect><rect class="on" x="14" y="6" width="4" height="12" rx="1.5"></rect><rect class="on" x="20" y="3" width="4" height="15" rx="1.5"></rect><rect x="26" y="0" width="4" height="18" rx="1.5"></rect></svg></button>
+          <button type="button" data-int="5" aria-label="Intensidad Máxima"><svg width="30" height="18" viewBox="0 0 30 18" aria-hidden="true"><rect class="on" x="2" y="12" width="4" height="6" rx="1.5"></rect><rect class="on" x="8" y="9" width="4" height="9" rx="1.5"></rect><rect class="on" x="14" y="6" width="4" height="12" rx="1.5"></rect><rect class="on" x="20" y="3" width="4" height="15" rx="1.5"></rect><rect class="on" x="26" y="0" width="4" height="18" rx="1.5"></rect></svg></button>
+        </div>
         <div class="pl-etq">Íconos de abajo</div>
         <div class="segmentos" id="segIconos">
           <button type="button" data-iconos="color">A color</button>
@@ -321,6 +361,21 @@
           <div class="celda"><div class="v num"><span id="rMax">--</span><small> km/h</small></div><div class="e">máxima</div></div>
         </div>
         <button type="button" id="btnCerrarResumen">Cerrar</button>
+      </div>
+
+      <div class="ruta-info oculto" id="rutaInfo" role="status" aria-live="polite">
+        <span class="bandera"><svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 21V4" stroke-width="2.2" stroke-linecap="round" style="stroke: var(--ruta)"></path><path d="M6 4h11l-2.5 4L17 12H6z" style="fill: var(--ruta)"></path></svg></span>
+        <div class="txt">
+          <div class="nombre-dest" id="rutaNombre">Destino</div>
+          <div class="datos num"><span id="rutaKm">--</span><small> km</small><span class="sep">|</span><small>llega </small><span id="rutaHora">--:--</span></div>
+        </div>
+        <button type="button" class="quitar" id="btnQuitarRuta" aria-label="Quitar ruta"><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" stroke-width="2.4" stroke-linecap="round" style="stroke: var(--suave)"></path></svg></button>
+      </div>
+
+      <div class="aviso-viaje oculto" id="avisoViaje" role="dialog" aria-label="Ruta de Waze">
+        <span class="ficha-ruta"><svg width="28" height="28" viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="18" r="2.6" fill="#FFFFFF"></circle><path d="M6 15.4V11a4 4 0 0 1 4-4h6" fill="none" stroke="#FFFFFF" stroke-width="2.2" stroke-linecap="round"></path><path d="M14.5 3.8 18 7l-3.5 3.2" fill="none" stroke="#FFFFFF" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>
+        <div class="txt"><b>Ruta de Waze recibida</b><span>Se abre en otra pestaña de Safari.</span></div>
+        <div class="btns"><button type="button" class="abrir" id="btnAbrirViaje">Ver ruta</button><button type="button" class="luego" id="btnLuegoViaje">Ahora no</button></div>
       </div>
 
       <div class="dial" id="dial" role="img" aria-label="Velocidad"></div>
@@ -436,6 +491,9 @@
     <button type="button" class="dock-btn" data-app="clima">
       <span class="ficha" style="background: #C97A0A"><svg width="26" height="26" viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="9" r="5" fill="#FFFFFF" fill-opacity="0.55"></circle><path d="M8 20h10.5a4 4 0 0 0 .4-8 5.5 5.5 0 0 0-10.6 1.6A3.3 3.3 0 0 0 8 20z" fill="#FFFFFF"></path></svg></span>
       <span class="nombre">Clima</span><span class="marca"></span></button>
+    <button type="button" class="dock-btn oculto" data-app="ruta" id="dockRuta">
+      <span class="ficha" style="background: #2563EB"><svg width="26" height="26" viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="18" r="2.6" fill="#FFFFFF"></circle><path d="M6 15.4V11a4 4 0 0 1 4-4h6" fill="none" stroke="#FFFFFF" stroke-width="2.2" stroke-linecap="round"></path><path d="M14.5 3.8 18 7l-3.5 3.2" fill="none" stroke="#FFFFFF" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>
+      <span class="nombre">Ruta</span><span class="marca"></span></button>
     <button type="button" class="dock-btn bloqueable" data-app="videos">
       <span class="ficha" style="background: #C2283A"><svg width="26" height="26" viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="4" fill="#FFFFFF"></rect><path d="M10 9.2v5.6l4.8-2.8z" fill="#C2283A"></path></svg>
         <svg class="candado" width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="12" style="fill: var(--col)"></circle><rect x="7" y="11" width="10" height="8" rx="2" style="fill: var(--suave)"></rect><path d="M9 11V8.5a3 3 0 0 1 6 0V11" fill="none" style="stroke: var(--suave)" stroke-width="2"></path></svg></span>
@@ -456,7 +514,7 @@
 (function () {
   'use strict';
 
-  var WEB_VERSION = '2.4.0';
+  var WEB_VERSION = '2.5.0';
   var INTERVALO_POS_MS = 500;
   var BUENOS_AIRES = [-58.3816, -34.6037];
   var DEMO = /[?&]demo=1/.test(location.search);
@@ -567,6 +625,9 @@
   };
   var ambiente = leer('ambiente', 'ambar');
   var iconos = leer('iconos', 'color'); // color | ambiente
+  var INTENSIDADES = [0, 0.35, 0.65, 1, 1.5, 2.1]; // 3 = como estaba
+  var intensidad = leer('intensidad', 3);
+  if (!INTENSIDADES[intensidad]) intensidad = 3;
   if (!AMBIENTES[ambiente] && ambiente !== 'apagada') ambiente = 'ambar';
   function aplicarAmbiente() {
     // "Apagada": sin línea de luz en los bordes; los instrumentos quedan en ámbar
@@ -582,7 +643,13 @@
     // La escena toma el tono de la luz ambiente; apagada, un blanco neutro muy suave
     var hex = ambiente === 'apagada' ? (temaActual === 'dia' ? '#9AA6B6' : '#C9D3E0') : c[0];
     st.setProperty('--amb-rgb', parseInt(hex.slice(1, 3), 16) + ', ' + parseInt(hex.slice(3, 5), 16) + ', ' + parseInt(hex.slice(5, 7), 16));
-    if (auto3d && auto3d.ambiente) auto3d.ambiente(hex, escena);
+    // Intensidad: escena sobre el mapa, línea de luz de los bordes y halo bajo el auto
+    var k = INTENSIDADES[intensidad];
+    st.setProperty('--amb-alfa', Math.min(0.55, (temaActual === 'dia' ? 0.12 : 0.2) * k).toFixed(3));
+    st.setProperty('--luz-alfa', Math.min(1, 0.5 * Math.sqrt(k)).toFixed(3));
+    st.setProperty('--luz-alfa-dia', Math.min(0.8, 0.3 * Math.sqrt(k)).toFixed(3));
+    st.setProperty('--luz-blur', Math.round(16 * k) + 'px');
+    if (auto3d && auto3d.ambiente) auto3d.ambiente(hex, escena, Math.min(0.75, 0.32 * k));
   }
 
   var modoTema = leer('modoTema', 'auto'); // auto | dia | noche
@@ -612,14 +679,19 @@
   });
 
   // ================= Mapa =================
-  if (typeof maplibregl === 'undefined') { aviso('No se pudo cargar el mapa. Revisá que el iPad tenga internet.'); return; }
+  if (typeof maplibregl === 'undefined') {
+    // Pasa cuando el iPad arranca antes de tener internet: reintentamos solos
+    aviso('Esperando internet para cargar el mapa… reintento en unos segundos.');
+    setTimeout(function () { location.reload(); }, 6000);
+    return;
+  }
   if (!maplibregl.supported()) { aviso('Este navegador no soporta mapas con WebGL.'); return; }
 
   var COLORES = {
     noche: { fondo: '#0F1A2C', agua: '#0E2A4A', parque: '#123A33', calleP: '#2A3D5E', calleS: '#22324D', calle: '#1A2740',
-      texto: '#8EA3C0', halo: '#0A1322', edif: ['#2B3B5E', '#31385F', '#283F5C'] },
+      texto: '#8EA3C0', halo: '#0A1322', edif: ['#2B3B5E', '#31385F', '#283F5C'], ruta: '#38BDF8', rutaBorde: '#0B2440' },
     dia: { fondo: '#E6ECF3', agua: '#B9D6EE', parque: '#CBE6D2', calleP: '#FFFFFF', calleS: '#FFFFFF', calle: '#F7F9FC',
-      texto: '#536580', halo: '#FFFFFF', edif: ['#D2DAE6', '#C9D2E0', '#DCE2EB'] }
+      texto: '#536580', halo: '#FFFFFF', edif: ['#D2DAE6', '#C9D2E0', '#DCE2EB'], ruta: '#2563EB', rutaBorde: '#FFFFFF' }
   };
   function colorCalles(c) { return ['match', ['get', 'class'], ['motorway', 'trunk', 'primary'], c.calleP, 'secondary', c.calleS, c.calle]; }
   function colorEdif(c) { return ['match', ['%', ['to-number', ['coalesce', ['get', 'render_height'], 0]], 3], 0, c.edif[0], 1, c.edif[1], c.edif[2]]; }
@@ -656,6 +728,12 @@
     mapa.setPaintProperty('nombres', 'text-color', c.texto);
     mapa.setPaintProperty('nombres', 'text-halo-color', c.halo);
     mapa.setPaintProperty('edificios', 'fill-extrusion-color', colorEdif(c));
+    if (mapa.getLayer('ruta-linea')) {
+      mapa.setPaintProperty('ruta-borde', 'line-color', c.rutaBorde);
+      mapa.setPaintProperty('ruta-linea', 'line-color', c.ruta);
+      mapa.setPaintProperty('ruta-destino', 'circle-color', c.ruta);
+      mapa.setPaintProperty('ruta-destino', 'circle-stroke-color', c.rutaBorde);
+    }
   }
 
   // Vistas: seguir (cámara detrás del auto), mapa (más alejado), 2d (plano con el norte arriba)
@@ -796,7 +874,7 @@
       mover: function (p) { pos = p; visible = true; mapa.triggerRepaint(); },
       tema: function (t) { matCarro.color.setHex(t === 'dia' ? 0xFFFFFF : 0xF4F6F8); esNoche = t !== 'dia'; luces(); mapa.triggerRepaint(); },
       frenar: function (f) { if (f !== frenado) { frenado = f; luces(); mapa.triggerRepaint(); } },
-      ambiente: function (hex, activa) { matHalo.color.set(hex); halo.visible = !!activa; mapa.triggerRepaint(); }
+      ambiente: function (hex, activa, opacidad) { matHalo.color.set(hex); if (opacidad) matHalo.opacity = opacidad; halo.visible = !!activa; mapa.triggerRepaint(); }
     };
   }
 
@@ -810,6 +888,7 @@
 
   mapa.on('load', function () {
     mapaListo = true;
+    crearCapasRuta();
     try { auto3d = (typeof THREE !== 'undefined') ? crearAuto3D() : crearFlecha(); }
     catch (e) { console.log('Auto 3D no disponible: ' + e.message); auto3d = crearFlecha(); }
     temaActual = null; aplicarTema();
@@ -853,6 +932,7 @@
     var destino = { lng: p.lng, lat: p.lat, h: rumbo };
     actualizarViaje(p);
     seguirTramo(velocidad);
+    avanzarRuta(p);
     ultima = p;
 
     dibujarDial(velocidad === null ? null : Math.round(velocidad * 3.6));
@@ -871,6 +951,8 @@
     for (var i = 0; i < sw.length; i++) sw[i].className = 'swatch' + (sw[i].getAttribute('data-color') === ambiente ? ' activo' : '');
     var si2 = document.querySelectorAll('#segIconos button');
     for (var k = 0; k < si2.length; k++) si2[k].className = (si2[k].getAttribute('data-iconos') === iconos ? 'activo' : '');
+    var sint = document.querySelectorAll('#segIntensidad button');
+    for (var n = 0; n < sint.length; n++) sint[n].className = (+sint[n].getAttribute('data-int') === intensidad ? 'activo' : '');
     var sg = document.querySelectorAll('#segLimite button');
     for (var j = 0; j < sg.length; j++) sg[j].className = (+sg[j].getAttribute('data-lim') === limiteVel ? 'activo' : '');
     $('btnEscena').className = 'interruptor' + (escena ? ' on' : '');
@@ -880,14 +962,28 @@
     $('btnAtenuar').setAttribute('aria-pressed', atenuado ? 'true' : 'false');
     $('atenuador').className = 'atenuador' + (atenuado ? '' : ' oculto');
   }
+  // El panel se cierra solo si no lo tocás durante unos segundos
+  var CIERRE_PANEL_MS = 6000, cierrePanel = null;
+  function cerrarPanelLuces() {
+    clearTimeout(cierrePanel);
+    $('panelLuces').className = 'panel-luces oculto'; $('btnLuces').setAttribute('aria-expanded', 'false');
+  }
+  function programarCierrePanel() { clearTimeout(cierrePanel); cierrePanel = setTimeout(cerrarPanelLuces, CIERRE_PANEL_MS); }
   $('btnLuces').addEventListener('click', function (e) {
     e.stopPropagation();
     var abierto = $('panelLuces').className.indexOf('oculto') === -1;
-    $('panelLuces').className = 'panel-luces' + (abierto ? ' oculto' : '');
-    this.setAttribute('aria-expanded', abierto ? 'false' : 'true');
+    if (abierto) { cerrarPanelLuces(); return; }
+    $('panelLuces').className = 'panel-luces';
+    this.setAttribute('aria-expanded', 'true');
+    programarCierrePanel();
   });
-  $('panelLuces').addEventListener('click', function (e) { e.stopPropagation(); });
-  document.addEventListener('click', function () { $('panelLuces').className = 'panel-luces oculto'; $('btnLuces').setAttribute('aria-expanded', 'false'); });
+  $('panelLuces').addEventListener('click', function (e) { e.stopPropagation(); programarCierrePanel(); });
+  $('panelLuces').addEventListener('touchstart', programarCierrePanel);
+  document.addEventListener('click', cerrarPanelLuces);
+  var intBtns = document.querySelectorAll('#segIntensidad button');
+  for (var ni = 0; ni < intBtns.length; ni++) intBtns[ni].addEventListener('click', function () {
+    intensidad = +this.getAttribute('data-int'); guardar('intensidad', intensidad); aplicarAmbiente(); pintarPanelLuces();
+  });
   var swBtns = document.querySelectorAll('#swatches .swatch');
   for (var si = 0; si < swBtns.length; si++) swBtns[si].addEventListener('click', function () {
     ambiente = this.getAttribute('data-color'); guardar('ambiente', ambiente); aplicarAmbiente(); pintarPanelLuces();
@@ -1105,6 +1201,7 @@
   // ================= Dock y pantallas =================
   var appAbierta = 'mapa';
   function abrirApp(app) {
+    if (app === 'ruta') { abrirViaje(); return; }
     if ((app === 'videos' || app === 'juego') && enMovimiento) { toast('Disponible con el auto detenido'); return; }
     if (appAbierta === 'videos' && app !== 'videos') detenerVideo();
     if (appAbierta === 'juego' && app !== 'juego') detenerJuego();
@@ -1113,7 +1210,7 @@
     for (var i = 0; i < pantallas.length; i++) pantallas[i].className = 'pantalla' + (pantallas[i].id === 'p-' + app ? ' visible' : '');
     var botones = document.querySelectorAll('.dock-btn');
     for (var j = 0; j < botones.length; j++) {
-      var b = botones[j]; b.className = 'dock-btn' + (b.getAttribute('data-app') === 'videos' || b.getAttribute('data-app') === 'juego' ? ' bloqueable' : '') + (b.getAttribute('data-app') === app ? ' activo' : '');
+      var b = botones[j]; b.className = 'dock-btn' + (b.getAttribute('data-app') === 'videos' || b.getAttribute('data-app') === 'juego' ? ' bloqueable' : '') + (b.getAttribute('data-app') === app ? ' activo' : '') + (b.getAttribute('data-app') === 'ruta' && !(viajeWaze && viajeWaze.url) ? ' oculto' : '');
     }
     if (app === 'clima') pedirClima(true);
     if (app === 'musica') pedirMusica();
@@ -1228,6 +1325,284 @@
   $('lienzoJuego').addEventListener('touchstart', function (e) { e.preventDefault(); var r = this.getBoundingClientRect(); tocarJuego(e.touches[0].clientX - r.left); }, { passive: false });
   $('lienzoJuego').addEventListener('mousedown', function (e) { var r = this.getBoundingClientRect(); tocarJuego(e.clientX - r.left); });
 
+  // ================= Ruta al destino, dibujada en nuestro mapa =================
+  // La calcula OSRM (servidor público gratuito con datos de OpenStreetMap). Puede no coincidir
+  // siempre con la que elige Waze: si te desviás, se recalcula sola desde donde estés.
+  var ROUTERS = [
+    'https://router.project-osrm.org/route/v1/driving/',
+    'https://routing.openstreetmap.de/routed-car/route/v1/driving/'
+  ];
+  var DESVIO_M = 55, LLEGADA_M = 45;
+  var ruta = null;             // { t, dest, coords:[[lng,lat]], acum:[m], dist, dur, idx }
+  var rutaDescartada = leer('rutaDescartada', 0);
+  var calculando = false, ultimoCalculo = 0, desvios = 0, ultimoDibujo = 0;
+  var GEO_VACIO = { type: 'FeatureCollection', features: [] };
+
+  function crearCapasRuta() {
+    var c = COLORES[temaActual === 'dia' ? 'dia' : 'noche'];
+    mapa.addSource('ruta', { type: 'geojson', data: GEO_VACIO });
+    mapa.addSource('ruta-fin', { type: 'geojson', data: GEO_VACIO });
+    mapa.addLayer({ id: 'ruta-borde', type: 'line', source: 'ruta', layout: { 'line-cap': 'round', 'line-join': 'round' },
+      paint: { 'line-color': c.rutaBorde, 'line-width': ['interpolate', ['exponential', 1.5], ['zoom'], 12, 5, 16, 14, 18, 30] } });
+    mapa.addLayer({ id: 'ruta-linea', type: 'line', source: 'ruta', layout: { 'line-cap': 'round', 'line-join': 'round' },
+      paint: { 'line-color': c.ruta, 'line-width': ['interpolate', ['exponential', 1.5], ['zoom'], 12, 3, 16, 9, 18, 20] } });
+    mapa.addLayer({ id: 'ruta-destino', type: 'circle', source: 'ruta-fin',
+      paint: { 'circle-radius': ['interpolate', ['linear'], ['zoom'], 12, 6, 18, 14], 'circle-color': c.ruta, 'circle-stroke-color': c.rutaBorde, 'circle-stroke-width': 4 } });
+    if (ruta) dibujarRuta(true);
+  }
+
+  function metrosLocales(lat) { var r = Math.PI / 180 * 6371000; return { x: r * Math.cos(lat * Math.PI / 180), y: r }; }
+
+  function iniciarRuta(dest, t, info) {
+    ruta = { t: t, dest: dest, coords: null, acum: null, dist: 0, dur: 0, idx: 0, factor: 1, etaWaze: info && info.eta ? info.eta : null };
+    desvios = 0;
+    $('rutaNombre').textContent = dest.nombre || (info && info.nombre) || 'Destino';
+    $('rutaKm').textContent = '--'; $('rutaHora').textContent = '--:--';
+    $('rutaInfo').className = 'ruta-info';
+    if (mapaListo && mapa.getSource('ruta-fin')) mapa.getSource('ruta-fin').setData({ type: 'Feature', geometry: { type: 'Point', coordinates: [dest.lng, dest.lat] }, properties: {} });
+    if (ultima) calcularRuta(ultima); else toast('Destino recibido: esperando el GPS');
+  }
+
+  function calcularRuta(desde, intento) {
+    if (!ruta || calculando) return;
+    intento = intento || 0;
+    calculando = true; ultimoCalculo = ahora();
+    var t = ruta.t;
+    var url = ROUTERS[intento] + desde.lng.toFixed(6) + ',' + desde.lat.toFixed(6) + ';' + ruta.dest.lng.toFixed(6) + ',' + ruta.dest.lat.toFixed(6) +
+      '?overview=full&geometries=geojson&alternatives=false&steps=false';
+    pedirJSON(url, 12000, function (d) {
+      calculando = false;
+      if (!ruta || ruta.t !== t) return;
+      var r = d && d.routes && d.routes[0];
+      if (!r || !r.geometry || !r.geometry.coordinates || r.geometry.coordinates.length < 2) { toast('No encontré una ruta a ese destino'); return; }
+      var cs = r.geometry.coordinates, acum = [0];
+      for (var i = 1; i < cs.length; i++) acum.push(acum[i - 1] + distancia({ lng: cs[i - 1][0], lat: cs[i - 1][1] }, { lng: cs[i][0], lat: cs[i][1] }));
+      ruta.coords = cs; ruta.acum = acum; ruta.dist = acum[acum.length - 1] || r.distance; ruta.dur = r.duration; ruta.idx = 0;
+      // La primera vez ajustamos los tiempos para que coincidan con la llegada que calculó Waze
+      if (ruta.etaWaze && !ruta.calibrada && r.duration > 0) {
+        var falta = (ruta.etaWaze - ahora()) / 1000;
+        if (falta > 0) ruta.factor = Math.max(0.8, Math.min(3, falta / r.duration));
+        ruta.calibrada = true;
+      }
+      desvios = 0;
+      if (ultima) avanzarRuta(ultima, true); else dibujarRuta(true);
+    }, function () {
+      calculando = false;
+      if (intento + 1 < ROUTERS.length) calcularRuta(desde, intento + 1);
+      else toast('No pude calcular la ruta. ¿El iPad tiene internet?');
+    });
+  }
+
+  // Punto más cercano de la ruta a la posición actual (busca a partir de donde íbamos)
+  function proyectar(p) {
+    var cs = ruta.coords, m = metrosLocales(p.lat), mejor = { d: Infinity, i: ruta.idx, k: 0 };
+    var desde = Math.max(0, ruta.idx - 5);
+    for (var i = desde; i < cs.length - 1; i++) {
+      var ax = (cs[i][0] - p.lng) * m.x, ay = (cs[i][1] - p.lat) * m.y;
+      var bx = (cs[i + 1][0] - p.lng) * m.x, by = (cs[i + 1][1] - p.lat) * m.y;
+      var dx = bx - ax, dy = by - ay, l2 = dx * dx + dy * dy;
+      var k = l2 > 0 ? Math.max(0, Math.min(1, -(ax * dx + ay * dy) / l2)) : 0;
+      var px = ax + dx * k, py = ay + dy * k, d = Math.sqrt(px * px + py * py);
+      if (d < mejor.d) mejor = { d: d, i: i, k: k };
+      if (d > mejor.d + 3000) break; // ya nos alejamos mucho del mejor tramo
+    }
+    return mejor;
+  }
+
+  function avanzarRuta(p, forzar) {
+    if (!ruta) return;
+    var aDestino = distancia(p, ruta.dest);
+    if (aDestino < LLEGADA_M) { toast('Llegaste a destino'); quitarRuta(true); return; }
+    if (!ruta.coords) return;
+    var pr = proyectar(p);
+    var buenaSenal = !p.accuracy || p.accuracy < 35;
+    if (pr.d > DESVIO_M && buenaSenal) desvios++; else if (pr.d < DESVIO_M * 0.6) desvios = 0;
+    if (desvios >= 4 && ahora() - ultimoCalculo > 12000) { desvios = 0; calcularRuta(p); }
+    if (pr.d <= DESVIO_M) ruta.idx = pr.i;
+    var segLen = ruta.acum[pr.i + 1] - ruta.acum[pr.i];
+    var restante = Math.max(0, ruta.dist - (ruta.acum[pr.i] + segLen * pr.k));
+    if (pr.d > DESVIO_M) restante = Math.max(restante, aDestino); // fuera de ruta: al menos la distancia en línea recta
+    var seg = ruta.dist > 0 ? ruta.dur * ruta.factor * (restante / ruta.dist) : 0;
+    $('rutaKm').textContent = restante >= 10000 ? Math.round(restante / 1000) : (restante / 1000).toFixed(1).replace('.', ',');
+    var llega = new Date(ahora() + seg * 1000);
+    $('rutaHora').textContent = llega.getHours() + ':' + ('0' + llega.getMinutes()).slice(-2);
+    if (forzar || ahora() - ultimoDibujo > 1500) dibujarRuta(false, pr);
+  }
+
+  // Dibuja solo lo que falta recorrer
+  function dibujarRuta(completa, pr) {
+    if (!ruta || !ruta.coords || !mapaListo || !mapa.getSource('ruta')) return;
+    ultimoDibujo = ahora();
+    var cs = ruta.coords, linea;
+    if (completa || !pr || pr.d > DESVIO_M) linea = cs.slice(ruta.idx);
+    else {
+      var a = cs[pr.i], b = cs[pr.i + 1];
+      linea = [[a[0] + (b[0] - a[0]) * pr.k, a[1] + (b[1] - a[1]) * pr.k]].concat(cs.slice(pr.i + 1));
+    }
+    if (linea.length < 2) linea = cs.slice(-2);
+    mapa.getSource('ruta').setData({ type: 'Feature', geometry: { type: 'LineString', coordinates: linea }, properties: {} });
+    mapa.getSource('ruta-fin').setData({ type: 'Feature', geometry: { type: 'Point', coordinates: [ruta.dest.lng, ruta.dest.lat] }, properties: {} });
+  }
+
+  // ---- Texto de "Compartir viaje" de Waze ----
+  // "Estoy usando Waze para ir a Tierno Parrilla, 1794 Calle Congreso, Buenos Aires, ... Llegaré a las 20:06. ..."
+  var geoBuscando = 0, geoFallo = 0;
+  function leerViajeWaze(texto) {
+    if (!texto) return null;
+    var mL = texto.match(/(?:para ir a|para llegar a|on my way to|driving to)\s+(.+?)\.\s+(?:Llegar|Llego|I'll arrive|ETA|Arriv)/i);
+    var mH = texto.match(/(?:Llegaré|Llego|llegada|arrive|ETA)[^0-9]{0,15}(\d{1,2}):(\d{2})(?:\s*([ap])\.?\s*m\.?)?/i);
+    var info = { lugar: mL ? mL[1] : null, nombre: null, eta: null, coords: null };
+    // Pin marcado en el mapa: a veces Waze pone las coordenadas en vez de una dirección
+    var mC = texto.match(/(-?\d{1,2}\.\d{3,})\s*,\s*(-?\d{1,3}\.\d{3,})/);
+    if (mC) {
+      var la = parseFloat(mC[1]), lo = parseFloat(mC[2]);
+      if (Math.abs(la) <= 90 && Math.abs(lo) <= 180) info.coords = { lat: la, lng: lo };
+    }
+    if (info.lugar) {
+      var partes = info.lugar.split(/,\s*/);
+      if (partes.length > 1 && !/\d/.test(partes[0])) info.nombre = partes[0];
+      else if (!info.coords) info.nombre = calleLegible(partes[0]);   // sin nombre de lugar: "Congreso 1794"
+    }
+    if (!info.lugar && !info.coords && !mH) return null;
+    if (mH) {
+      var h = +mH[1], mi = +mH[2], ap = (mH[3] || '').toLowerCase();
+      if (ap === 'p' && h < 12) h += 12; if (ap === 'a' && h === 12) h = 0;
+      var d = new Date(); d.setHours(h, mi, 0, 0);
+      if (d.getTime() < ahora() - 30 * 60000) d.setDate(d.getDate() + 1); // llega pasada la medianoche
+      info.eta = d.getTime();
+    }
+    return info;
+  }
+
+  function calleLegible(calle) {
+    var m = calle.match(/^(\d+[a-zA-Z]?)\s+(.+)$/);
+    if (m) calle = m[2] + ' ' + m[1];
+    return calle.replace(/^(Calle|C\.)\s+/i, '');
+  }
+
+  function mostrarBuscando(info) {
+    $('rutaNombre').textContent = info.nombre || 'Destino';
+    $('rutaKm').textContent = '--';
+    $('rutaHora').textContent = info.eta ? (new Date(info.eta).getHours() + ':' + ('0' + new Date(info.eta).getMinutes()).slice(-2)) : '--:--';
+    $('rutaInfo').className = 'ruta-info';
+  }
+
+  // Arma búsquedas de más precisa a menos: "Congreso 1794, Buenos Aires", la dirección completa, y con el nombre del lugar
+  function consultasDireccion(lugar) {
+    var partes = lugar.split(/,\s*/), out = [], iCalle = -1;
+    for (var i = 0; i < partes.length; i++) if (/\d/.test(partes[i])) { iCalle = i; break; }
+    if (iCalle >= 0) {
+      var calle = partes[iCalle], m = calle.match(/^(\d+[a-zA-Z]?)\s+(.+)$/);
+      if (m) calle = m[2] + ' ' + m[1];                        // "1794 Calle Congreso" -> "Calle Congreso 1794"
+      calle = calle.replace(/^(Calle|C\.)\s+/i, '');           // en OpenStreetMap figura solo "Congreso"
+      var resto = partes.slice(iCalle + 1);
+      out.push(calle + (resto[0] ? ', ' + resto[0] : ''));
+      out.push([calle].concat(resto).join(', '));
+    }
+    out.push(lugar);
+    return out;
+  }
+
+  function buscarDireccion(lugar, ok, error) {
+    var qs = consultasDireccion(lugar), pasos = [], cerca = ultima;
+    for (var i = 0; i < qs.length; i++) { pasos.push(['nominatim', qs[i]]); pasos.push(['photon', qs[i]]); }
+    var nombre = (leerViajeWaze('para ir a ' + lugar + '. Llego 0:00') || {}).nombre;
+    function razonable(p) { return p && isFinite(p.lat) && isFinite(p.lng) && (!cerca || distancia(cerca, p) < 300000); }
+    function siguiente(n) {
+      if (n >= pasos.length) { error(); return; }
+      var srv = pasos[n][0], q = encodeURIComponent(pasos[n][1]), url;
+      if (srv === 'nominatim') {
+        url = 'https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&accept-language=es&q=' + q;
+        if (cerca) url += '&viewbox=' + (cerca.lng - 0.6).toFixed(3) + ',' + (cerca.lat + 0.6).toFixed(3) + ',' + (cerca.lng + 0.6).toFixed(3) + ',' + (cerca.lat - 0.6).toFixed(3);
+      } else {
+        url = 'https://photon.komoot.io/api/?limit=1&q=' + q + (cerca ? '&lat=' + cerca.lat.toFixed(4) + '&lon=' + cerca.lng.toFixed(4) : '');
+      }
+      pedirJSON(url, 8000, function (d) {
+        var p = null;
+        // Solo aceptamos resultados con precisión de calle o número: nunca "el centro de la ciudad"
+        if (srv === 'nominatim' && d && d[0] && (+d[0].place_rank >= 26)) p = { lat: parseFloat(d[0].lat), lng: parseFloat(d[0].lon) };
+        if (srv === 'photon' && d && d.features && d.features[0]) {
+          var f = d.features[0], tipo = (f.properties && f.properties.type) || '';
+          if (!/^(city|district|county|state|country|locality|region|postcode)$/.test(tipo)) { var c = f.geometry.coordinates; p = { lat: c[1], lng: c[0] }; }
+        }
+        if (razonable(p)) { p.nombre = nombre || null; ok(p); } else siguiente(n + 1);
+      }, function () { siguiente(n + 1); });
+    }
+    siguiente(0);
+  }
+
+  function quitarRuta(recordar) {
+    if (ruta && recordar) { rutaDescartada = ruta.t; guardar('rutaDescartada', rutaDescartada); }
+    ruta = null; desvios = 0;
+    $('rutaInfo').className = 'ruta-info oculto';
+    if (mapaListo && mapa.getSource('ruta')) { mapa.getSource('ruta').setData(GEO_VACIO); mapa.getSource('ruta-fin').setData(GEO_VACIO); }
+  }
+  $('btnQuitarRuta').addEventListener('click', function () { quitarRuta(true); toast('Ruta quitada'); });
+
+  // ================= Ruta de Waze (link que pegás en la app del iPhone) =================
+  var viajeWaze = { url: null, t: 0 };
+  var viajeVisto = leer('viajeVisto', 0);
+  function abrirViaje() {
+    $('avisoViaje').className = 'aviso-viaje oculto';
+    if (!viajeWaze.url) { toast('No hay ninguna ruta compartida'); return; }
+    viajeVisto = viajeWaze.t; guardar('viajeVisto', viajeVisto);
+    var w = window.open(viajeWaze.url, '_blank');
+    if (!w) location.href = viajeWaze.url; // si Safari bloquea la pestaña, lo abrimos acá mismo
+  }
+  function pedirViaje() {
+    pedirJSON('/viaje?t=' + ahora(), 3000, function (d) {
+      if (!d) return;
+      if (d.dest && d.dest.lat !== undefined) {
+        // Destino con coordenadas: ruta en nuestro mapa
+        viajeWaze = { url: null, t: d.t || 0 };
+        $('dockRuta').className = 'dock-btn oculto';
+        $('avisoViaje').className = 'aviso-viaje oculto';
+        if (d.t !== rutaDescartada && (!ruta || ruta.t !== d.t)) iniciarRuta(d.dest, d.t, leerViajeWaze(d.texto));
+        return;
+      }
+      // "Compartir viaje": el texto trae la dirección y la hora de llegada de Waze
+      var info = leerViajeWaze(d.texto);
+      if (d.url && info && info.coords) {
+        viajeWaze = { url: null, t: d.t || 0 };
+        $('dockRuta').className = 'dock-btn oculto';
+        $('avisoViaje').className = 'aviso-viaje oculto';
+        if (d.t !== rutaDescartada && (!ruta || ruta.t !== d.t)) iniciarRuta({ lat: info.coords.lat, lng: info.coords.lng, nombre: info.nombre }, d.t, info);
+        return;
+      }
+      // Solo buscamos si parece una dirección (tiene número o varias partes). "Casa" o "Trabajo" no se pueden buscar.
+      var pareceDireccion = info && info.lugar && (/\d/.test(info.lugar) || info.lugar.split(',').length >= 2);
+      if (d.url && pareceDireccion && geoFallo !== d.t) {
+        viajeWaze = { url: null, t: d.t || 0 };
+        $('dockRuta').className = 'dock-btn oculto';
+        $('avisoViaje').className = 'aviso-viaje oculto';
+        if (d.t === rutaDescartada || (ruta && ruta.t === d.t) || geoBuscando === d.t) return;
+        geoBuscando = d.t;
+        mostrarBuscando(info);
+        buscarDireccion(info.lugar, function (dest) {
+          geoBuscando = 0;
+          iniciarRuta(dest, d.t, info);
+        }, function () {
+          geoBuscando = 0; geoFallo = d.t;
+          $('rutaInfo').className = 'ruta-info oculto';
+          toast('No encontré la dirección en el mapa');
+          pedirViaje();
+        });
+        return;
+      }
+      if (ruta) quitarRuta(false);
+      viajeWaze = { url: d.url || null, t: d.t || 0 };
+      $('dockRuta').className = 'dock-btn' + (viajeWaze.url ? '' : ' oculto') + (appAbierta === 'ruta' ? ' activo' : '');
+      if (!viajeWaze.url) { $('avisoViaje').className = 'aviso-viaje oculto'; return; }
+      if (viajeWaze.t !== viajeVisto) $('avisoViaje').className = 'aviso-viaje';
+    });
+  }
+  $('btnAbrirViaje').addEventListener('click', abrirViaje);
+  $('btnLuegoViaje').addEventListener('click', function () {
+    viajeVisto = viajeWaze.t; guardar('viajeVisto', viajeVisto);
+    $('avisoViaje').className = 'aviso-viaje oculto';
+    toast('La ruta queda en el botón Ruta de abajo');
+  });
+
   // ================= Modo demo (sin iPhone: agregá ?demo=1 a la dirección) =================
   function iniciarDemo() {
     estado('Modo demo · recorrido simulado', '#93C5FD');
@@ -1270,6 +1645,7 @@
   else {
     pedirPosicion(); setInterval(pedirPosicion, INTERVALO_POS_MS);
     pedirMusica(); setInterval(pedirMusica, 1500);
+    pedirViaje(); setInterval(pedirViaje, 3000);
     setInterval(revisarVersion, 30000);
   }
 })();
