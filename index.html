@@ -54,6 +54,7 @@
   .barra-ctrl button { width: 56px; height: 52px; border: 0; background: transparent; display: flex; flex-direction: column;
     align-items: center; justify-content: center; border-top: 1px solid var(--borde); }
   .barra-ctrl button:first-child { border-top: 0; height: 62px; }
+  .barra-ctrl button.activo { background: var(--panel2); }
   .barra-ctrl .etq { font-size: 10px; font-weight: 600; color: var(--suave); margin-top: 3px; }
 
   .dial { position: absolute; left: 14px; bottom: 14px; width: 210px; height: 210px; }
@@ -250,6 +251,68 @@
   .resumen .celda .e { font-size: 13px; color: var(--suave); }
   .resumen button { width: 100%; height: 50px; margin-top: 14px; border: 0; border-radius: 14px; background: var(--panel2); font-size: 16px; font-weight: 600; }
 
+  /* ---------- Panel Entorno (izquierda) ---------- */
+  .panel-entorno { display: none; position: relative; width: 330px; flex: 0 0 330px; overflow: hidden; border-right: 1px solid var(--borde);
+    background: radial-gradient(ellipse 120% 70% at 50% 100%, var(--panel2) 0%, var(--bg) 70%); }
+  html.modo-entorno .panel-entorno { display: block; }
+  #lienzoEntorno { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: block; }
+  .pe-arriba { position: absolute; left: 0; right: 0; top: 14px; z-index: 3; text-align: center; }
+  .entorno-hud { display: -webkit-box; display: flex; justify-content: center; }
+  .eh-chip { display: -webkit-box; display: flex; align-items: center; height: 40px; padding: 0 12px; margin: 0 4px; border-radius: 20px;
+    background: var(--panel); border: 1px solid var(--borde); box-shadow: var(--sombra); font-size: 14px; color: var(--suave); white-space: nowrap; }
+  .eh-chip svg { margin-right: 6px; }
+  .eh-chip b { font-size: 19px; font-weight: 600; color: var(--texto); margin-right: 5px; }
+  .eh-luz { width: 13px; height: 13px; border-radius: 50%; margin-right: 7px; background: var(--suave); }
+  .eh-luz.verde { background: #34D399; box-shadow: 0 0 10px #34D399; }
+  .eh-luz.amarillo { background: #FBBF24; box-shadow: 0 0 10px #FBBF24; }
+  .eh-luz.rojo { background: #F43F5E; box-shadow: 0 0 10px #F43F5E; }
+  .eh-chip.peligro { border-color: #F43F5E; }
+  .eh-chip.peligro b { color: #F43F5E; }
+  .eh-alerta { display: inline-block; height: 44px; line-height: 44px; padding: 0 20px; margin-bottom: 10px; border-radius: 22px;
+    background: #E11D48; color: #FFFFFF; font-size: 18px; font-weight: 700; box-shadow: 0 6px 24px rgba(225, 29, 72, 0.45); }
+  .pe-estado { display: inline-block; margin-top: 10px; padding: 5px 12px; border-radius: 12px; font-size: 12px; font-weight: 600;
+    letter-spacing: 0.05em; text-transform: uppercase; color: var(--suave); background: var(--panel); border: 1px solid var(--borde); }
+  .panel-entorno.alerta::after { content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0; pointer-events: none; z-index: 2;
+    box-shadow: inset 0 0 50px 6px rgba(244, 63, 94, 0.55); -webkit-animation: latido 0.8s ease-in-out infinite alternate; animation: latido 0.8s ease-in-out infinite alternate; }
+  @-webkit-keyframes latido { from { opacity: 0.45; } to { opacity: 1; } }
+  @keyframes latido { from { opacity: 0.45; } to { opacity: 1; } }
+  /* Cartel de velocidad máxima (de OpenStreetMap) */
+  .vel-max { position: absolute; z-index: 4; left: 50%; margin-left: 62px; bottom: 128px; width: 58px; height: 58px; border-radius: 50%; box-sizing: border-box;
+    background: #FFFFFF; border: 6px solid #E11D48; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35); }
+  .vel-max span { font-size: 21px; font-weight: 700; color: #111827; letter-spacing: -0.03em; }
+  .vel-max.excedido { -webkit-animation: latido 0.8s ease-in-out infinite alternate; animation: latido 0.8s ease-in-out infinite alternate; }
+
+  /* ---------- Pantalla completa (botón Panel): el entorno ocupa todo y el mapa queda chico arriba a la derecha ---------- */
+  html.completa .panel-entorno { position: absolute; top: 0; left: 0; right: 0; bottom: 0; width: auto; border-right: 0; }
+  html.completa .zona-mapa { background: transparent; pointer-events: none; z-index: 2; }
+  html.completa .zona-mapa > * { pointer-events: auto; }
+  html.completa .zona-mapa > .reloj-mapa { pointer-events: none; }
+  html.completa #mapa { top: 16px; right: 16px; left: auto; bottom: auto; width: 300px; height: 210px; border-radius: 18px; overflow: hidden;
+    border: 1px solid var(--borde); box-shadow: var(--sombra); }
+  html.completa .barra-ctrl { top: 242px; }
+  html.completa .panel-luces { top: 242px; }
+  html.completa .btn-recentrar { display: none; }
+  html.modo-entorno.completa .aviso-viaje { right: 332px; }
+  html.completa .pe-arriba { top: auto; bottom: 22px; }
+  html.completa .panel-entorno .dial { left: 14px; margin-left: 0; -webkit-transform: scale(0.86); transform: scale(0.86); -webkit-transform-origin: 0 100%; transform-origin: 0 100%; }
+  html.completa .vel-max { left: 168px; margin-left: 0; bottom: 150px; }
+
+  /* Columna derecha oculta: el mapa se agranda y arriba queda solo la hora */
+  .reloj-mapa { display: none; position: absolute; left: 50%; top: 10px; z-index: 4; font-size: 44px; font-weight: 600; letter-spacing: -0.02em;
+    color: var(--texto); text-shadow: 0 2px 10px rgba(var(--bg-rgb), 0.9), 0 0 2px rgba(var(--bg-rgb), 0.9);
+    -webkit-transform: translateX(-50%); transform: translateX(-50%); pointer-events: none; }
+  html.sin-columna .columna { display: none; }
+  html.sin-columna .reloj-mapa { display: -webkit-box; display: flex; align-items: center; }
+  html.sin-columna:not(.completa) .reloj-mapa { left: auto; right: 88px; -webkit-transform: none; transform: none; }
+  .panel-entorno .dial { border-radius: 50%; background: radial-gradient(circle, rgba(var(--bg-rgb), 0.92) 0%, rgba(var(--bg-rgb), 0.92) 68%, rgba(var(--bg-rgb), 0) 72%); }
+  .rm-clima { display: -webkit-box; display: flex; align-items: center; margin-left: 18px; font-size: 30px; font-weight: 500; color: var(--texto); }
+  .rm-clima svg { margin-right: 6px; }
+  /* El velocímetro pasa al panel del entorno, más chico */
+  .panel-entorno .dial { left: 50%; bottom: 4px; margin-left: -105px; z-index: 3; -webkit-transform: scale(0.78); transform: scale(0.78); -webkit-transform-origin: 50% 100%; transform-origin: 50% 100%; }
+  /* Con el mapa más angosto, las tarjetas se ajustan al ancho */
+  html.modo-entorno .aviso-viaje { width: auto; left: 16px; right: 84px; -webkit-transform: none; transform: none; }
+  html.modo-entorno .resumen { width: calc(100% - 32px); }
+
   /* ---------- Ruta al destino (dibujada en nuestro mapa) ---------- */
   .ruta-info { position: absolute; left: 16px; top: 64px; width: 300px; box-sizing: border-box; padding: 12px 10px 12px 14px; border-radius: 18px; z-index: 6;
     background: var(--panel); border: 1px solid var(--borde); box-shadow: var(--sombra); display: -webkit-box; display: flex; align-items: center; }
@@ -260,6 +323,21 @@
   .ruta-info .datos small { font-size: 14px; font-weight: 500; color: var(--suave); }
   .ruta-info .datos .sep { color: var(--borde); margin: 0 6px; font-weight: 400; }
   .ruta-info .quitar { flex: 0 0 40px; width: 40px; height: 40px; border: 0; border-radius: 12px; background: transparent; margin-left: 6px; }
+  .ruta-info { display: block; }
+  .ri-fila { display: -webkit-box; display: flex; align-items: center; }
+  html.modo-entorno .ruta-info { width: auto; right: 88px; max-width: 300px; }
+  html.modo-entorno:not(.sin-columna) .ruta-info .datos { font-size: 19px; }
+  html.modo-entorno:not(.sin-columna) .ruta-info .datos .sep { margin: 0 4px; }
+  html.modo-entorno:not(.sin-columna) .ruta-info .quitar { flex-basis: 32px; width: 32px; margin-left: 2px; }
+  html.modo-entorno:not(.sin-columna) .ruta-info .bandera { margin-right: 10px; }
+  .ri-maniobra { width: 100%; display: -webkit-box; display: flex; align-items: center; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--borde); }
+  .ri-flecha { flex: 0 0 40px; width: 40px; height: 40px; margin-right: 12px; display: flex; align-items: center; justify-content: center; }
+  .ri-flecha svg { -webkit-transition: -webkit-transform 0.3s; transition: transform 0.3s; }
+  .ri-man-txt { flex: 1 1 auto; min-width: 0; font-size: 15px; color: var(--suave); line-height: 1.25; }
+  .ri-man-txt b { display: block; font-size: 20px; font-weight: 600; color: var(--texto); }
+  .ri-man-txt span { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ri-progreso { width: 100%; height: 4px; margin-top: 10px; border-radius: 2px; background: var(--panel2); overflow: hidden; }
+  .ri-progreso span { display: block; height: 100%; width: 0; border-radius: 2px; background: var(--ruta); -webkit-transition: width 1s; transition: width 1s; }
   body.noche .ruta-info .bandera { background: #0E3B5C; }
   body.dia .ruta-info .bandera { background: #DCEBFF; }
 
@@ -283,6 +361,21 @@
 <body class="noche">
 <div class="app">
   <div class="main">
+    <div class="panel-entorno" id="panelEntorno">
+      <canvas id="lienzoEntorno"></canvas>
+      <div class="pe-arriba">
+        <div class="eh-alerta oculto" id="ehAlerta">¡Cuidado adelante!</div>
+        <div class="entorno-hud" id="entornoHud" aria-live="polite">
+          <div class="eh-chip" id="ehLider">
+            <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 16V11l2-5h10l2 5v5" fill="none" stroke-width="2" stroke-linejoin="round" style="stroke: var(--suave)"></path><path d="M3 16h18v3H3z" style="fill: var(--suave)"></path></svg>
+            <b class="num" id="ehDist">--</b><small id="ehTiempo"></small>
+          </div>
+          <div class="eh-chip" id="ehSemaforo"><span class="eh-luz" id="ehLuz"></span><span id="ehSemTxt">--</span></div>
+        </div>
+        <div class="pe-estado" id="peEstado">Sin cámara conectada</div>
+      </div>
+      <div class="vel-max oculto" id="velMax" role="img" aria-label="Velocidad máxima"><span class="num" id="velMaxNum">--</span></div>
+    </div>
     <div class="zona-mapa">
       <div id="mapa"></div>
       <div class="escena" id="escena"></div>
@@ -297,6 +390,10 @@
         <button type="button" id="btnVista" aria-label="Cambiar vista">
           <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 19 20l-7-3.5L5 20z" style="fill: var(--acento)"></path></svg>
           <span class="etq" id="etqVista">Seguir</span>
+        </button>
+        <button type="button" id="btnColumna" aria-label="Cambiar disposición">
+          <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4.5" width="18" height="15" rx="3" fill="none" stroke-width="2" style="stroke: var(--acento)"></rect><path d="M14.5 5v14" stroke-width="2" style="stroke: var(--acento)"></path><path d="M16.8 9h2M16.8 12h2M16.8 15h2" stroke-width="1.6" stroke-linecap="round" style="stroke: var(--acento)"></path></svg>
+          <span class="etq" id="etqPanel">3 partes</span>
         </button>
         <button type="button" id="btnTema" aria-label="Tema automático">
           <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18z" style="fill: var(--ambar)"></path><path d="M12 3a9 9 0 0 1 0 18" fill="none" style="stroke: var(--ambar)" stroke-width="2"></path></svg>
@@ -349,6 +446,7 @@
         <div class="pl-etq">Pantalla</div>
         <button type="button" class="interruptor" id="btnEscena" aria-pressed="true"><span>Efectos de escena</span><span class="pista"><span></span></span></button>
         <button type="button" class="interruptor" id="btnAtenuar" aria-pressed="false"><span>Atenuar para manejar de noche</span><span class="pista"><span></span></span></button>
+        <button type="button" class="interruptor" id="btnEntornoSim" aria-pressed="false"><span>Entorno simulado (prueba)</span><span class="pista"><span></span></span></button>
       </div>
 
       <div class="resumen oculto" id="resumen" role="dialog" aria-label="Resumen del viaje">
@@ -364,12 +462,19 @@
       </div>
 
       <div class="ruta-info oculto" id="rutaInfo" role="status" aria-live="polite">
+        <div class="ri-fila">
         <span class="bandera"><svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 21V4" stroke-width="2.2" stroke-linecap="round" style="stroke: var(--ruta)"></path><path d="M6 4h11l-2.5 4L17 12H6z" style="fill: var(--ruta)"></path></svg></span>
         <div class="txt">
           <div class="nombre-dest" id="rutaNombre">Destino</div>
           <div class="datos num"><span id="rutaKm">--</span><small> km</small><span class="sep">|</span><small>llega </small><span id="rutaHora">--:--</span></div>
         </div>
         <button type="button" class="quitar" id="btnQuitarRuta" aria-label="Quitar ruta"><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" stroke-width="2.4" stroke-linecap="round" style="stroke: var(--suave)"></path></svg></button>
+        </div>
+        <div class="ri-maniobra oculto" id="riManiobra">
+          <span class="ri-flecha" id="riFlecha"><svg width="26" height="26" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20V5M6 10.5 12 4.5l6 6" fill="none" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" style="stroke: var(--ruta)"></path></svg></span>
+          <div class="ri-man-txt"><b class="num" id="riManDist">--</b><span id="riManTxt"></span></div>
+        </div>
+        <div class="ri-progreso" aria-hidden="true"><span id="riBarra"></span></div>
       </div>
 
       <div class="aviso-viaje oculto" id="avisoViaje" role="dialog" aria-label="Ruta de Waze">
@@ -377,6 +482,8 @@
         <div class="txt"><b>Ruta de Waze recibida</b><span>Se abre en otra pestaña de Safari.</span></div>
         <div class="btns"><button type="button" class="abrir" id="btnAbrirViaje">Ver ruta</button><button type="button" class="luego" id="btnLuegoViaje">Ahora no</button></div>
       </div>
+
+      <div class="reloj-mapa" id="relojMapa" aria-hidden="true"><span class="num" id="horaMapa">--:--</span><span class="rm-clima" id="climaMapa"><span id="iconoClimaMapa"></span><span class="num" id="tempMapa"></span></span></div>
 
       <div class="dial" id="dial" role="img" aria-label="Velocidad"></div>
       <button type="button" class="btn-recentrar oculto" id="btnRecentrar">Recentrar</button>
@@ -514,7 +621,7 @@
 (function () {
   'use strict';
 
-  var WEB_VERSION = '2.5.1';
+  var WEB_VERSION = '2.6.0';
   var INTERVALO_POS_MS = 500;
   var BUENOS_AIRES = [-58.3816, -34.6037];
   var DEMO = /[?&]demo=1/.test(location.search);
@@ -592,6 +699,7 @@
   function actualizarReloj() {
     var d = new Date();
     $('hora').textContent = ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2);
+    $('horaMapa').textContent = $('hora').textContent;
     var f; try { f = d.toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' }); } catch (e) { f = d.toDateString(); }
     $('fecha').textContent = f.charAt(0).toUpperCase() + f.slice(1);
   }
@@ -650,6 +758,7 @@
     st.setProperty('--luz-alfa-dia', Math.min(0.8, 0.3 * Math.sqrt(k)).toFixed(3));
     st.setProperty('--luz-blur', Math.round(16 * k) + 'px');
     if (auto3d && auto3d.ambiente) auto3d.ambiente(hex, escena, Math.min(0.75, 0.32 * k));
+    if (panelEnt) panelEnt.ambiente(c[0]);
   }
 
   var modoTema = leer('modoTema', 'auto'); // auto | dia | noche
@@ -670,6 +779,7 @@
     aplicarAmbiente();
     if (mapaListo) aplicarTemaMapa(tema);
     if (auto3d) auto3d.tema(tema);
+    if (panelEnt) panelEnt.tema(tema);
   }
   $('btnTema').addEventListener('click', function () {
     modoTema = modoTema === 'auto' ? 'dia' : (modoTema === 'dia' ? 'noche' : 'auto');
@@ -738,13 +848,22 @@
 
   // Vistas: seguir (cámara detrás del auto), mapa (más alejado), 2d (plano con el norte arriba)
   var VISTAS = {
+    plano: { pitch: 0, zoom: 16.9, padTop: 0.3, etiqueta: '2D' },   // plano, desde arriba, gira con el auto (como Waze)
     seguir: { pitch: 60, zoom: 18.4, padTop: 0.5, etiqueta: 'Seguir' },
     mapa: { pitch: 45, zoom: 16.2, padTop: 0.3, etiqueta: 'Mapa' },
-    '2d': { pitch: 0, zoom: 16.5, padTop: 0, etiqueta: '2D' }
+    '2d': { pitch: 0, zoom: 16.5, padTop: 0, etiqueta: 'Norte' }
   };
-  var ORDEN_VISTAS = ['seguir', 'mapa', '2d'];
-  var vista = leer('vista', 'seguir');
-  if (!VISTAS[vista]) vista = 'seguir';
+  var entornoSim = /[?&]entorno=sim/.test(location.search) || leer('entornoSim', false);
+  var modoEntorno = true; // el panel del entorno queda siempre a la izquierda
+  // Disposición: 'tres' (entorno | mapa | columna), 'dos' (entorno | mapa) o 'completa' (entorno con minimapa)
+  var DISPOSICIONES = ['tres', 'dos', 'completa'], NOMBRE_DISP = { tres: '3 partes', dos: '2 partes', completa: 'Completa' };
+  var disposicion = leer('disposicion', leer('columnaOculta', false) ? 'completa' : 'tres');
+  if (DISPOSICIONES.indexOf(disposicion) === -1) disposicion = 'tres';
+  function ordenVistas() { return ['plano', 'seguir', 'mapa', '2d']; }
+  var vista = leer('vista', 'plano');
+  // Con el entorno en 3D a la izquierda, el mapa del medio arranca en 2D (una sola vez; después respeta lo que elijas)
+  if (!leer('vistaPlanoInicial', false)) { vista = 'plano'; guardar('vista', vista); guardar('vistaPlanoInicial', true); }
+  if (!VISTAS[vista]) vista = 'plano';
 
   var mapa = new maplibregl.Map({
     container: 'mapa', style: estilo, center: BUENOS_AIRES, zoom: VISTAS[vista].zoom, pitch: VISTAS[vista].pitch, bearing: 0,
@@ -757,13 +876,15 @@
   function aplicarVista(animar) {
     var v = VISTAS[vista];
     $('etqVista').textContent = v.etiqueta;
-    var opciones = { pitch: v.pitch, zoom: v.zoom, padding: padding(), duration: animar ? 700 : 0 };
+    var opciones = { pitch: v.pitch, zoom: v.zoom - (disposicion === 'completa' ? 1.3 : 0), padding: padding(), duration: animar ? 700 : 0 };
+    if (auto3d && auto3d.escala) auto3d.escala(v.pitch === 0 ? 6 : 4); // visto desde arriba, el auto un poco más grande
     if (actual) { opciones.center = [actual.lng, actual.lat]; opciones.bearing = vista === '2d' ? 0 : actual.h; }
     siguiendo = true; $('btnRecentrar').className = 'btn-recentrar oculto';
     mapa.easeTo(opciones);
   }
   $('btnVista').addEventListener('click', function () {
-    vista = ORDEN_VISTAS[(ORDEN_VISTAS.indexOf(vista) + 1) % ORDEN_VISTAS.length];
+    var orden = ordenVistas();
+    vista = orden[(orden.indexOf(vista) + 1) % orden.length];
     guardar('vista', vista); aplicarVista(true);
   });
   $('btnMas').addEventListener('click', function () { mapa.zoomIn(); });
@@ -872,9 +993,144 @@
     mapa.addLayer(capa);
     return {
       mover: function (p) { pos = p; visible = true; mapa.triggerRepaint(); },
-      tema: function (t) { matCarro.color.setHex(t === 'dia' ? 0xFFFFFF : 0xF4F6F8); esNoche = t !== 'dia'; luces(); mapa.triggerRepaint(); },
-      frenar: function (f) { if (f !== frenado) { frenado = f; luces(); mapa.triggerRepaint(); } },
-      ambiente: function (hex, activa, opacidad) { matHalo.color.set(hex); if (opacidad) matHalo.opacity = opacidad; halo.visible = !!activa; mapa.triggerRepaint(); }
+      tema: function (t) { matCarro.color.setHex(t === 'dia' ? 0xFFFFFF : 0xF4F6F8); esNoche = t !== 'dia'; luces(); mapa.triggerRepaint(); if (panelEnt) panelEnt.pedirCuadro(); },
+      clonarAuto: function () { return grupo.clone(); },
+      escala: function (e) { ESCALA = e; mapa.triggerRepaint(); },
+      frenar: function (f) { if (f !== frenado) { frenado = f; luces(); mapa.triggerRepaint(); if (panelEnt) panelEnt.pedirCuadro(); } },
+      ambiente: function (hex, activa, opacidad) {
+        matHalo.color.set(hex); if (opacidad) matHalo.opacity = opacidad; halo.visible = !!activa;
+        mapa.triggerRepaint();
+      }
+    };
+  }
+
+  // ================= Panel Entorno (izquierda): lo que rodea al auto, en su propia escena 3D =================
+  // Recibe los datos de la cámara y los radares (hoy, del simulador) con el formato:
+  // { objetos: [{ id, tipo, x, y, estado }], lider, peligro, avance }  (metros; x a la derecha, y hacia adelante)
+  var panelEnt = null, avanceSinDatos = 0;
+  function crearPanelEntorno() {
+    var lienzo = $('lienzoEntorno'), render;
+    try { render = new THREE.WebGLRenderer({ canvas: lienzo, antialias: true, alpha: true }); } catch (e) { console.log('Entorno 3D no disponible: ' + e.message); return null; }
+    render.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
+    var escena = new THREE.Scene();
+    var camara = new THREE.PerspectiveCamera(48, 0.5, 0.5, 400);
+    camara.position.set(0, 12, 17); camara.lookAt(0, 0, -6);
+    escena.add(new THREE.AmbientLight(0xffffff, 0.75));
+    var sol = new THREE.DirectionalLight(0xffffff, 0.6); sol.position.set(30, 80, 40); escena.add(sol);
+    var pendiente = false;
+    function pedirCuadro() {
+      if (pendiente) return; pendiente = true;
+      window.requestAnimationFrame(function () { pendiente = false; if (lienzo.clientWidth) render.render(escena, camara); });
+    }
+    // Coordenadas en metros alrededor de tu auto: x hacia la derecha, y hacia adelante.
+    var mundo = new THREE.Group(); escena.add(mundo);
+    var COL_ENT = {
+      noche: { cuerpo: 0x7C8DA8, vidrio: 0x1E2A40, persona: 0xDCE4EF, linea: 0xFFFFFF, calle: 0x0C1626 },
+      dia: { cuerpo: 0xA3AEC0, vidrio: 0x4E5D75, persona: 0x46536A, linea: 0x5B6B82, calle: 0xDDE4ED }
+    };
+    var matObj = new THREE.MeshLambertMaterial({ color: COL_ENT.noche.cuerpo });
+    var matObjV = new THREE.MeshLambertMaterial({ color: COL_ENT.noche.vidrio });
+    var matPers = new THREE.MeshLambertMaterial({ color: COL_ENT.noche.persona });
+    var matLider = new THREE.MeshLambertMaterial({ color: 0xFFB547 });
+    var matPeligro = new THREE.MeshLambertMaterial({ color: 0xFF4D5E });
+    var matAviso = new THREE.MeshLambertMaterial({ color: 0xFF9F43 });
+    function geoPerfil(puntos, ancho) {
+      var forma = new THREE.Shape(); forma.moveTo(puntos[0][0], puntos[0][1]);
+      for (var i = 1; i < puntos.length; i++) forma.lineTo(puntos[i][0], puntos[i][1]);
+      var g = new THREE.ExtrudeGeometry(forma, { depth: ancho, bevelEnabled: false });
+      g.translate(0, 0, -ancho / 2); g.rotateY(Math.PI / 2); return g;
+    }
+    function geoCaja(w, h, l, y) { var g = new THREE.BoxGeometry(w, h, l); g.translate(0, y, 0); return g; }
+    var GEO = {
+      auto: geoPerfil([[-2.2, 0.2], [2.2, 0.2], [2.2, 0.62], [1.4, 0.82], [0.7, 1.32], [-1.2, 1.36], [-2.05, 0.92], [-2.2, 0.8]], 1.78),
+      autoV: geoPerfil([[0.72, 0.84], [0.62, 1.3], [-1.15, 1.33], [-1.95, 0.9]], 1.82),
+      colectivo: geoCaja(2.5, 2.7, 11.5, 1.65), colectivoV: geoCaja(2.54, 0.95, 10.6, 2.15),
+      moto: geoCaja(0.42, 0.75, 2.0, 0.6), piloto: geoCaja(0.5, 0.75, 0.55, 1.35), casco: new THREE.SphereGeometry(0.17, 10, 8),
+      cuerpo: new THREE.CylinderGeometry(0.2, 0.25, 1.1, 10), cabeza: new THREE.SphereGeometry(0.17, 10, 8)
+    };
+    GEO.casco.translate(0, 1.9, 0.05); GEO.cuerpo.translate(0, 0.6, 0); GEO.cabeza.translate(0, 1.36, 0);
+    function crearObjeto(tipo) {
+      var g = new THREE.Group(), cuerpo = [];
+      function m(geo, mat, esCuerpo) { var x = new THREE.Mesh(geo, mat); g.add(x); if (esCuerpo) cuerpo.push(x); return x; }
+      if (tipo === 'colectivo' || tipo === 'camion') { m(GEO.colectivo, matObj, true); m(GEO.colectivoV, matObjV); }
+      else if (tipo === 'moto' || tipo === 'bici') { m(GEO.moto, matObj, true); m(GEO.piloto, matObj, true); m(GEO.casco, matObjV); }
+      else if (tipo === 'persona') { m(GEO.cuerpo, matPers, true); m(GEO.cabeza, matPers, true); }
+      else { m(GEO.auto, matObj, true); m(GEO.autoV, matObjV); }
+      g.userData = { tipo: tipo, cuerpo: cuerpo, base: tipo === 'persona' ? matPers : matObj };
+      mundo.add(g); return g;
+    }
+    // Carriles: calle translúcida y líneas que se desvanecen a lo lejos (un solo objeto cada una, para el iPad viejo)
+    function franjas(xs, largo, hueco, ancho, desde, hasta) {
+      var pos = [], col = [];
+      function a(z) { return z > 0 ? Math.max(0, 1 - z / 30) : Math.max(0, 1 + z / 110); }
+      xs.forEach(function (x) {
+        for (var z = desde; z > hasta; z -= (largo + hueco)) {
+          var z1 = z - largo, x0 = x - ancho / 2, x1 = x + ancho / 2, a0 = a(z), a1 = a(z1);
+          pos.push(x0, 0.05, z, x1, 0.05, z, x1, 0.05, z1, x0, 0.05, z, x1, 0.05, z1, x0, 0.05, z1);
+          col.push(1, 1, 1, a0, 1, 1, 1, a0, 1, 1, 1, a1, 1, 1, 1, a0, 1, 1, 1, a1, 1, 1, 1, a1);
+        }
+      });
+      var g = new THREE.BufferGeometry();
+      g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+      g.setAttribute('color', new THREE.Float32BufferAttribute(col, 4));
+      return g;
+    }
+    var matLineas = new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, depthWrite: false, opacity: 0.55 });
+    var matCalle = new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, depthWrite: false, opacity: 0.8, color: COL_ENT.noche.calle });
+    var calle = new THREE.Mesh(franjas([0], 160, 0, 10.6, 40, -120), matCalle); calle.renderOrder = -2; mundo.add(calle);
+    var bordes = new THREE.Mesh(franjas([-5.3, 5.3], 160, 0, 0.16, 40, -120), matLineas); mundo.add(bordes);
+    var PERIODO = 9; // 3 m de línea + 6 m de espacio
+    var discontinuas = new THREE.Mesh(franjas([-1.75, 1.75], 3, 6, 0.14, 40 + PERIODO, -120), matLineas); mundo.add(discontinuas);
+    // Franja de tu carril hasta el auto de adelante
+    var gFranja = new THREE.PlaneGeometry(2.4, 1); gFranja.rotateX(-Math.PI / 2); gFranja.translate(0, 0.07, -0.5);
+    var matFranja = new THREE.MeshBasicMaterial({ color: 0xFFB547, transparent: true, opacity: 0.35, depthWrite: false, blending: THREE.AdditiveBlending });
+    var franja = new THREE.Mesh(gFranja, matFranja); franja.visible = false; mundo.add(franja);
+    var objetos = {}, colorAmb = 0xFFB547;
+    function temaEntorno(t) {
+      var c = COL_ENT[t === 'dia' ? 'dia' : 'noche'];
+      matObj.color.setHex(c.cuerpo); matObjV.color.setHex(c.vidrio); matPers.color.setHex(c.persona);
+      matLineas.color.setHex(c.linea); matCalle.color.setHex(c.calle);
+      matLineas.opacity = t === 'dia' ? 0.7 : 0.55;
+      // De noche la franja brilla; de día, sobre fondo claro, va como color suave
+      matFranja.blending = t === 'dia' ? THREE.NormalBlending : THREE.AdditiveBlending; matFranja.needsUpdate = true;
+    }
+    function actualizarEntorno(d) {
+      if (!d) d = { objetos: [], avance: avanceSinDatos };
+      discontinuas.position.z = (d.avance || 0) % PERIODO;
+      var vistos = {};
+      (d.objetos || []).forEach(function (o) {
+        var g = objetos[o.id];
+        if (!g || g.userData.tipo !== o.tipo) { if (g) mundo.remove(g); g = objetos[o.id] = crearObjeto(o.tipo); }
+        g.position.set(o.x, 0, -o.y);
+        g.rotation.y = o.giro ? -o.giro * Math.PI / 180 : 0;
+        var mat = o.estado === 'peligro' ? matPeligro : o.estado === 'aviso' ? matAviso : o.estado === 'lider' ? matLider : g.userData.base;
+        for (var i = 0; i < g.userData.cuerpo.length; i++) g.userData.cuerpo[i].material = mat;
+        vistos[o.id] = true;
+      });
+      for (var id in objetos) if (!vistos[id]) { mundo.remove(objetos[id]); delete objetos[id]; }
+      if (d.lider && d.lider.y > 3) {
+        franja.visible = true; franja.position.z = -2.3; franja.scale.z = Math.max(0.1, d.lider.y - 4.6);
+        matFranja.color.setHex(d.peligro ? 0xFF4D5E : colorAmb); matFranja.opacity = d.peligro ? 0.55 : 0.35;
+      } else franja.visible = false;
+      pedirCuadro();
+    }
+
+    // Tu auto: el mismo modelo blanco del mapa
+    if (auto3d && auto3d.clonarAuto) escena.add(auto3d.clonarAuto());
+    function medir() {
+      var w = lienzo.clientWidth, h = lienzo.clientHeight;
+      if (!w || !h) return;
+      render.setSize(w, h, false); camara.aspect = w / h;
+      if (camara.aspect > 1) { camara.fov = 38; camara.position.set(0, 9.5, 19); camara.lookAt(0, 0, -12); }    // pantalla completa
+      else { camara.fov = 48; camara.position.set(0, 12, 17); camara.lookAt(0, 0, -6); }                        // panel angosto
+      camara.updateProjectionMatrix(); pedirCuadro();
+    }
+    return {
+      actualizar: actualizarEntorno,
+      tema: function (t) { temaEntorno(t); pedirCuadro(); },
+      ambiente: function (hex) { colorAmb = new THREE.Color(hex).getHex(); matLider.color.set(hex); pedirCuadro(); },
+      medir: medir, pedirCuadro: pedirCuadro,
+      avanzar: function (m) { discontinuas.position.z = m % PERIODO; pedirCuadro(); }
     };
   }
 
@@ -894,9 +1150,10 @@
     temaActual = null; aplicarTema();
     aplicarAmbiente();
     aplicarVista(false);
+    iniciarPanelEntorno();
     if (actual) colocar(actual);
   });
-  window.addEventListener('resize', function () { aplicarVista(false); });
+  window.addEventListener('resize', function () { aplicarVista(false); if (panelEnt) panelEnt.medir(); });
 
   // ================= Posición, movimiento suave y seguimiento =================
   var ultima = null, actual = null, anim = null, rumbo = 0, enMovimiento = false, velocidad = null, frenoHasta = 0;
@@ -933,6 +1190,7 @@
     actualizarViaje(p);
     seguirTramo(velocidad);
     avanzarRuta(p);
+    pedirVelMax(p); mostrarVelMax();
     ultima = p;
 
     dibujarDial(velocidad === null ? null : Math.round(velocidad * 3.6));
@@ -961,6 +1219,8 @@
     $('btnAtenuar').className = 'interruptor' + (atenuado ? ' on' : '');
     $('btnAtenuar').setAttribute('aria-pressed', atenuado ? 'true' : 'false');
     $('atenuador').className = 'atenuador' + (atenuado ? '' : ' oculto');
+    $('btnEntornoSim').className = 'interruptor' + (entornoSim ? ' on' : '');
+    $('btnEntornoSim').setAttribute('aria-pressed', entornoSim ? 'true' : 'false');
   }
   // El panel se cierra solo si no lo tocás durante unos segundos
   var CIERRE_PANEL_MS = 6000, cierrePanel = null;
@@ -997,6 +1257,14 @@
     limiteVel = +this.getAttribute('data-lim'); guardar('limiteVel', limiteVel); dibujarDial(dialValor === 'inicio' ? null : dialValor, true); pintarPanelLuces();
   });
   $('btnAtenuar').addEventListener('click', function () { atenuado = !atenuado; guardar('atenuado', atenuado); pintarPanelLuces(); });
+  $('btnEntornoSim').addEventListener('click', function () {
+    entornoSim = !entornoSim; guardar('entornoSim', entornoSim); pintarPanelLuces();
+    if (entornoSim) iniciarSimEntorno(); else detenerSimEntorno();
+  });
+  $('btnColumna').addEventListener('click', function () {
+    disposicion = DISPOSICIONES[(DISPOSICIONES.indexOf(disposicion) + 1) % DISPOSICIONES.length];
+    guardar('disposicion', disposicion); aplicarModoEntorno(); toast('Disposición: ' + NOMBRE_DISP[disposicion]);
+  });
   $('btnEscena').addEventListener('click', function () { escena = !escena; guardar('escena', escena); pintarPanelLuces(); aplicarAmbiente(); });
   pintarPanelLuces();
 
@@ -1162,6 +1430,7 @@
       if (d.daily) desc += ' · Máx ' + Math.round(d.daily.temperature_2m_max[0]) + '° · Mín ' + Math.round(d.daily.temperature_2m_min[0]) + '°';
       var rango = d.daily ? Math.round(d.daily.temperature_2m_max[0]) + '° / ' + Math.round(d.daily.temperature_2m_min[0]) + '°' : '';
       $('temp').textContent = temp; $('iconoClima').innerHTML = svgClima(d.current.weather_code, 46);
+      $('tempMapa').textContent = temp; $('iconoClimaMapa').innerHTML = svgClima(d.current.weather_code, 34);
       $('descClima').textContent = info[1]; $('rangoClima').textContent = rango;
       $('tempG').textContent = temp; $('iconoClimaG').innerHTML = svgClima(d.current.weather_code, 96); $('descClimaG').textContent = desc;
       var html = '';
@@ -1369,7 +1638,7 @@
     calculando = true; ultimoCalculo = ahora();
     var t = ruta.t;
     var url = ROUTERS[intento] + desde.lng.toFixed(6) + ',' + desde.lat.toFixed(6) + ';' + ruta.dest.lng.toFixed(6) + ',' + ruta.dest.lat.toFixed(6) +
-      '?overview=full&geometries=geojson&alternatives=false&steps=false';
+      '?overview=full&geometries=geojson&alternatives=false&steps=true';
     pedirJSON(url, 12000, function (d) {
       calculando = false;
       if (!ruta || ruta.t !== t) return;
@@ -1378,6 +1647,15 @@
       var cs = r.geometry.coordinates, acum = [0];
       for (var i = 1; i < cs.length; i++) acum.push(acum[i - 1] + distancia({ lng: cs[i - 1][0], lat: cs[i - 1][1] }, { lng: cs[i][0], lat: cs[i][1] }));
       ruta.coords = cs; ruta.acum = acum; ruta.dist = acum[acum.length - 1] || r.distance; ruta.dur = r.duration; ruta.idx = 0;
+      if (!ruta.distInicio || ruta.dist > ruta.distInicio) ruta.distInicio = ruta.dist;
+      // Maniobras (giros, rotondas) con la distancia desde el inicio de la ruta donde ocurre cada una
+      ruta.pasos = [];
+      var escalaD = r.distance > 0 ? ruta.dist / r.distance : 1, acumP = 0;
+      var pasos = (r.legs && r.legs[0] && r.legs[0].steps) || [];
+      for (var sp = 0; sp < pasos.length; sp++) {
+        ruta.pasos.push({ en: acumP * escalaD, m: pasos[sp].maneuver || {}, calle: pasos[sp].name || pasos[sp].ref || '' });
+        acumP += pasos[sp].distance || 0;
+      }
       // La primera vez ajustamos los tiempos para que coincidan con la llegada que calculó Waze
       if (ruta.etaWaze && !ruta.calibrada && r.duration > 0) {
         var falta = (ruta.etaWaze - ahora()) / 1000;
@@ -1426,7 +1704,71 @@
     $('rutaKm').textContent = restante >= 10000 ? Math.round(restante / 1000) : (restante / 1000).toFixed(1).replace('.', ',');
     var llega = new Date(ahora() + seg * 1000);
     $('rutaHora').textContent = llega.getHours() + ':' + ('0' + llega.getMinutes()).slice(-2);
+    $('riBarra').style.width = Math.round(Math.max(0, Math.min(1, 1 - restante / (ruta.distInicio || ruta.dist))) * 100) + '%';
+    mostrarManiobra(ruta.dist - restante, pr.d > DESVIO_M);
     if (forzar || ahora() - ultimoDibujo > 1500) dibujarRuta(false, pr);
+  }
+
+  // ---- Próxima indicación de giro ----
+  var GIRO = { 'uturn': 180, 'sharp right': 135, 'right': 90, 'slight right': 45, 'straight': 0, 'slight left': -45, 'left': -90, 'sharp left': -135 };
+  var DIR = { 'uturn': 'en U', 'sharp right': 'fuerte a la derecha', 'right': 'a la derecha', 'slight right': 'levemente a la derecha', 'straight': 'derecho',
+    'slight left': 'levemente a la izquierda', 'left': 'a la izquierda', 'sharp left': 'fuerte a la izquierda' };
+  var ORDINAL = ['', 'primera', 'segunda', 'tercera', 'cuarta', 'quinta', 'sexta'];
+  function textoManiobra(p) {
+    var t = p.m.type, dir = DIR[p.m.modifier] || '', c = p.calle;
+    if (t === 'arrive') return 'Llegás a destino';
+    if (t === 'roundabout' || t === 'rotary' || t === 'roundabout turn') {
+      var n = p.m.exit; return 'En la rotonda, tomá la ' + (ORDINAL[n] || ('salida ' + n)) + (ORDINAL[n] ? ' salida' : '') + (c ? ' hacia ' + c : '');
+    }
+    if (t === 'end of road') return 'Al final, girá ' + dir + (c ? ' en ' + c : '');
+    if (t === 'fork') return 'En la bifurcación, mantenete ' + dir + (c ? ' hacia ' + c : '');
+    if (t === 'merge') return 'Incorporate ' + dir + (c ? ' a ' + c : '');
+    if (t === 'on ramp') return 'Tomá el acceso ' + dir + (c ? ' a ' + c : '');
+    if (t === 'off ramp') return 'Tomá la salida ' + dir + (c ? ' hacia ' + c : '');
+    if (t === 'continue') return 'Seguí ' + dir + (c ? ' por ' + c : '');
+    return 'Girá ' + dir + (c ? ' en ' + c : '');
+  }
+  function mostrarManiobra(recorrido, fueraDeRuta) {
+    var prox = null;
+    if (ruta && ruta.pasos && !fueraDeRuta) {
+      for (var i = 0; i < ruta.pasos.length; i++) {
+        var p = ruta.pasos[i], t = p.m.type;
+        if (t === 'depart' || t === 'new name' || (t === 'continue' && p.m.modifier === 'straight')) continue;
+        if (p.en > recorrido + 3) { prox = p; break; }
+      }
+    }
+    if (!prox) { $('riManiobra').className = 'ri-maniobra oculto'; return; }
+    var d = prox.en - recorrido;
+    $('riManDist').textContent = d >= 1000 ? (d / 1000).toFixed(1).replace('.', ',') + ' km' : (d < 30 ? 'Ahora' : (Math.round(d / 10) * 10) + ' m');
+    $('riManTxt').textContent = textoManiobra(prox);
+    var ang = prox.m.type === 'arrive' ? 0 : (GIRO[prox.m.modifier] || 0);
+    $('riFlecha').firstChild.style.transform = 'rotate(' + ang + 'deg)';
+    $('riFlecha').firstChild.style.webkitTransform = 'rotate(' + ang + 'deg)';
+    $('riManiobra').className = 'ri-maniobra';
+  }
+
+  // ---- Velocidad máxima de la calle (OpenStreetMap, por internet; no todas las calles la tienen cargada) ----
+  var velMax = null, ultimaConsultaVel = 0, lugarConsultaVel = null, consultandoVel = false;
+  function pedirVelMax(p) {
+    if (consultandoVel || ahora() - ultimaConsultaVel < 20000) return;
+    if (lugarConsultaVel && distancia(lugarConsultaVel, p) < 120) return;
+    consultandoVel = true; ultimaConsultaVel = ahora(); lugarConsultaVel = { lat: p.lat, lng: p.lng };
+    var q = '[out:json][timeout:8];way(around:18,' + p.lat.toFixed(5) + ',' + p.lng.toFixed(5) + ')[highway][maxspeed];out tags 4;';
+    pedirJSON('https://overpass-api.de/api/interpreter?data=' + encodeURIComponent(q), 10000, function (d) {
+      consultandoVel = false;
+      var v = null, els = (d && d.elements) || [];
+      for (var i = 0; i < els.length && v === null; i++) {
+        var ms = (els[i].tags && els[i].tags.maxspeed) || '', n = parseInt(ms, 10);
+        if (n > 0) v = /mph/.test(ms) ? Math.round(n * 1.609) : n;
+      }
+      velMax = v; mostrarVelMax();
+    }, function () { consultandoVel = false; });
+  }
+  function mostrarVelMax() {
+    if (!velMax) { $('velMax').className = 'vel-max oculto'; return; }
+    $('velMaxNum').textContent = velMax;
+    var kmh = velocidad === null ? 0 : velocidad * 3.6;
+    $('velMax').className = 'vel-max' + (kmh > velMax + 5 ? ' excedido' : '');
   }
 
   // Dibuja solo lo que falta recorrer
@@ -1535,6 +1877,7 @@
     if (ruta && recordar) { rutaDescartada = ruta.t; guardar('rutaDescartada', rutaDescartada); }
     ruta = null; desvios = 0;
     $('rutaInfo').className = 'ruta-info oculto';
+    $('riManiobra').className = 'ri-maniobra oculto'; $('riBarra').style.width = '0';
     if (mapaListo && mapa.getSource('ruta')) { mapa.getSource('ruta').setData(GEO_VACIO); mapa.getSource('ruta-fin').setData(GEO_VACIO); }
   }
   $('btnQuitarRuta').addEventListener('click', function () { quitarRuta(true); toast('Ruta quitada'); });
@@ -1603,6 +1946,186 @@
     toast('La ruta queda en el botón Ruta de abajo');
   });
 
+  // ================= Entorno simulado =================
+  // Genera lo que más adelante van a mandar el iPhone 11 (cámara) y los radares, con el mismo formato:
+  // { objetos: [{ id, tipo, x, y, estado }], lider, peligro, avance }  (metros; x a la derecha, y hacia adelante)
+  var sim = null, simTimer = null;
+  var LARGO_AUTO = 4.4, TTC_PELIGRO = 2.3;
+  function nuevoSim() {
+    return {
+      t: 0, avance: 0, ultimo: ahora(), freno: 0, peligroDesde: 0,
+      objs: [
+        { id: 'lider', tipo: 'auto', x: 0, y: 19, v: 12 },
+        { id: 'izq', tipo: 'auto', x: -3.5, y: -22, v: 16 },
+        { id: 'cole', tipo: 'colectivo', x: 3.5, y: 55, v: 8 },
+        { id: 'moto', tipo: 'moto', x: -1.75, y: -45, v: 18 },
+        { id: 'est1', tipo: 'auto', x: 6.9, y: 12, v: 0 },
+        { id: 'est2', tipo: 'auto', x: 6.9, y: 34, v: 0 },
+        { id: 'est3', tipo: 'auto', x: 6.9, y: 63, v: 0 },
+        { id: 'p1', tipo: 'persona', x: 9.2, y: 26, v: 1.3 },
+        { id: 'p2', tipo: 'persona', x: -7.6, y: 48, v: -1.1 },
+        { id: 'p3', tipo: 'persona', x: 9.6, y: 70, v: 0.9 }
+      ]
+    };
+  }
+  function pasoSim() {
+    if (camaraActiva()) return; // con la cámara real conectada, la simulación se pausa
+    var n = ahora(), dt = Math.min(0.2, (n - sim.ultimo) / 1000); sim.ultimo = n; sim.t += dt;
+    var vBase = (velocidad !== null && velocidad > 2) ? velocidad : 12;
+    var vYo = Math.max(0, vBase - sim.freno);   // tu auto simulado también frena cuando aparece el aviso
+    sim.avance += vYo * dt;
+    var ciclo = sim.t % 40, lider = null;
+    sim.objs.forEach(function (o) {
+      if (o.id === 'lider') {
+        // Va a tu ritmo; a los 18 s frena fuerte y después se recupera
+        var vObj;
+        if (ciclo < 18) vObj = vBase + Math.sin(sim.t / 3) * 0.8;
+        else if (ciclo < 20.6) vObj = Math.max(3, o.v - 3.4 * dt);      // frena fuerte durante unos 2,5 s
+        else if (ciclo < 22) vObj = o.v;                                 // sigue lento un momento
+        else vObj = o.y < 19 ? vYo + 2.5 : vBase;                        // acelera y recupera la distancia
+        o.v = vObj;
+        if (o.y < LARGO_AUTO + 2.5) { o.y = LARGO_AUTO + 2.5; o.v = Math.max(o.v, vYo); }
+        lider = o;
+      }
+      o.y += (o.v - vYo) * dt;
+      if (o.tipo === 'persona') { o.y += 0; }
+      // Reaparecen cuando salen de la escena
+      if (o.y < -45) {
+        if (o.id === 'cole') { o.y = 95 + Math.random() * 30; o.v = vYo - 3 - Math.random() * 3; }
+        else if (o.v <= 2) { o.y = 80 + Math.random() * 25; }
+        else o.y = 90;
+      }
+      if (o.y > 110) {
+        if (o.id === 'izq') { o.y = -30 - Math.random() * 20; o.v = vYo + 3 + Math.random() * 3; }
+        if (o.id === 'moto') { o.y = -40 - Math.random() * 30; o.v = vYo + 5 + Math.random() * 3; }
+        if (o.tipo === 'persona') o.y = -40;
+      }
+      if (o.id === 'moto' && o.y < -60) o.y = -60;
+    });
+    // Distancia al de adelante (de paragolpes a paragolpes) y tiempo hasta alcanzarlo
+    var hueco = lider ? lider.y - LARGO_AUTO : null;
+    var cierre = lider ? vYo - lider.v : 0;
+    var ttc = cierre > 0.5 ? hueco / cierre : Infinity;
+    // Aviso si lo vas a alcanzar en menos de 2,3 s, o si vas demasiado pegado para tu velocidad (menos de 0,7 s de distancia)
+    var peligro = hueco !== null && ((hueco < 25 && ttc < TTC_PELIGRO) || (vYo > 3 && hueco / vYo < 0.7));
+    // Tu reacción: medio segundo después del aviso frenás hasta igualar la velocidad del de adelante
+    if (peligro) { if (!sim.peligroDesde) sim.peligroDesde = sim.t; }
+    else sim.peligroDesde = 0;
+    if (sim.peligroDesde && sim.t - sim.peligroDesde > 0.5 && lider) sim.freno = Math.min(vBase - lider.v + 2, sim.freno + 7 * dt);
+    else if (!peligro && lider && lider.y > 14) sim.freno = Math.max(0, sim.freno - 2.5 * dt);
+    var datos = { avance: sim.avance, lider: lider, peligro: peligro, objetos: [] };
+    sim.objs.forEach(function (o) {
+      var estado = '';
+      if (o === lider) estado = peligro ? 'peligro' : 'lider';
+      else if (o.tipo === 'moto' && o.y > -14 && o.y < 3) estado = 'aviso';
+      if (o.y > -45 && o.y < 110) datos.objetos.push({ id: o.id, tipo: o.tipo, x: o.x, y: o.y, estado: estado });
+    });
+    if (panelEnt) panelEnt.actualizar(datos);
+    mostrarEntorno(hueco, vYo, peligro, sim.t);
+  }
+  function mostrarEntorno(hueco, vYo, peligro, t, semaforoReal) {
+    if (hueco === null) { $('ehDist').textContent = '--'; $('ehTiempo').textContent = ''; }
+    else {
+      $('ehDist').textContent = Math.max(0, Math.round(hueco)) + ' m';
+      $('ehTiempo').textContent = vYo > 1 ? (hueco / vYo).toFixed(1).replace('.', ',') + ' s' : '';
+    }
+    $('ehLider').className = 'eh-chip' + (peligro ? ' peligro' : '');
+    $('ehAlerta').className = 'eh-alerta' + (peligro ? '' : ' oculto');
+    var zona = $('panelEntorno');
+    var tieneAlerta = zona.className.indexOf(' alerta') !== -1;
+    if (peligro && !tieneAlerta) zona.className += ' alerta';
+    if (!peligro && tieneAlerta) zona.className = zona.className.replace(' alerta', '');
+    var real = camaraActiva();
+    $('entornoHud').className = 'entorno-hud' + (simTimer || real ? '' : ' oculto');
+    $('peEstado').textContent = real ? 'Cámara' : (simTimer ? 'Simulación' : 'Sin cámara conectada');
+    var luz = real ? semaforoReal : (function () { var c = t % 30; return c < 14 ? 'verde' : c < 17 ? 'amarillo' : 'rojo'; })();
+    $('ehSemaforo').style.display = luz ? '' : 'none';
+    $('ehLider').style.display = (hueco === null && real) ? 'none' : '';
+    if (luz) {
+      $('ehLuz').className = 'eh-luz ' + luz;
+      $('ehSemTxt').textContent = luz === 'verde' ? 'Semáforo en verde' : luz === 'amarillo' ? 'Amarillo' : 'Semáforo en rojo';
+    }
+  }
+
+  // ================= Entorno real (iPhone de la cámara → iPhone principal → iPad) =================
+  var entornoReal = null, entornoRealT = 0, pidiendoEntorno = false;
+  var LARGO_PROPIO = 4.0;          // Ford Fiesta: ~4 m; la cámara va más o menos a la mitad del auto
+  function camaraActiva() { return !!entornoReal && ahora() - entornoRealT < 1500; }
+  function pedirEntorno() {
+    if (pidiendoEntorno) return;
+    pidiendoEntorno = true;
+    pedirJSON('/entorno?t=' + ahora(), 1200, function (r) {
+      pidiendoEntorno = false;
+      if (r && r.datos && r.edad !== null && r.edad < 1500) {
+        entornoReal = r.datos; entornoRealT = ahora() - r.edad;
+        procesarEntornoReal(r.datos);
+      }
+    }, function () { pidiendoEntorno = false; });
+  }
+  // Decide cuál es el auto de adelante y si hay que avisar, con lo que vio la cámara
+  function procesarEntornoReal(datos) {
+    var vYo = velocidad !== null ? velocidad : 0;
+    var lider = null, objs = datos.objetos || [];
+    for (var i = 0; i < objs.length; i++) {
+      var o = objs[i];
+      if (o.tipo === 'persona' || Math.abs(o.x) > 1.6 || o.d <= 0) continue;
+      if (!lider || o.d < lider.d) lider = o;
+    }
+    var hueco = lider ? Math.max(0, lider.d - LARGO_PROPIO / 2) : null;
+    var cierre = lider ? -lider.vy : 0;                   // vy negativa = se acerca
+    var ttc = cierre > 0.5 ? hueco / cierre : Infinity;
+    var peligro = hueco !== null && ((hueco < 25 && ttc < TTC_PELIGRO) || (vYo > 3 && hueco / vYo < 0.7));
+    var lista = [];
+    for (var j = 0; j < objs.length; j++) {
+      var ob = objs[j], estado = '';
+      if (ob === lider) estado = peligro ? 'peligro' : 'lider';
+      else if (ob.tipo === 'persona' && Math.abs(ob.x) < 2.5 && ob.d < 15) estado = 'aviso';
+      lista.push({ id: ob.id, tipo: ob.tipo, x: ob.x, y: ob.y, estado: estado });
+    }
+    if (panelEnt) panelEnt.actualizar({ avance: avanceSinDatos, lider: lider, peligro: peligro, objetos: lista });
+    mostrarEntorno(hueco, vYo, peligro, 0, datos.semaforo);
+  }
+  function iniciarSimEntorno() {
+    if (simTimer || !panelEnt) return;
+    sim = nuevoSim();
+    simTimer = setInterval(pasoSim, 66); // unas 15 veces por segundo, como mandaría la cámara
+  }
+  function detenerSimEntorno() {
+    clearInterval(simTimer); simTimer = null; sim = null;
+    if (panelEnt) panelEnt.actualizar(null);
+    mostrarEntorno(null, 0, false, 0);
+  }
+  // Mostrar u ocultar el panel del entorno (botón Entorno de la barra)
+  var ultimoAvance = ahora();
+  function aplicarModoEntorno() {
+    document.documentElement.classList.toggle('modo-entorno', modoEntorno);
+    document.documentElement.classList.toggle('sin-columna', disposicion !== 'tres');
+    document.documentElement.classList.toggle('completa', disposicion === 'completa');
+    $('etqPanel').textContent = NOMBRE_DISP[disposicion];
+    $('btnColumna').setAttribute('aria-label', 'Disposición: ' + NOMBRE_DISP[disposicion] + '. Tocá para cambiar');
+    $('btnColumna').className = disposicion === 'tres' ? '' : 'activo';
+    // El velocímetro se muda al panel del entorno y vuelve al mapa
+    var dial = $('dial'), destino = modoEntorno ? $('panelEntorno') : document.querySelector('.zona-mapa');
+    if (dial.parentNode !== destino) destino.appendChild(dial);
+    setTimeout(function () { if (mapaListo) { mapa.resize(); aplicarVista(false); } if (panelEnt) panelEnt.medir(); }, 30);
+  }
+  function iniciarPanelEntorno() {
+    if (!panelEnt && typeof THREE !== 'undefined') panelEnt = crearPanelEntorno();
+    if (panelEnt) { panelEnt.tema(temaActual); var ae = getComputedStyle(document.body).getPropertyValue('--ambar'); if (ae) panelEnt.ambiente(ae.trim()); }
+    aplicarModoEntorno();
+    mostrarEntorno(null, 0, false, 0);
+    if (entornoSim) iniciarSimEntorno();
+    else if (panelEnt) panelEnt.actualizar(null);
+    // Sin datos de cámara, las líneas de la calle igual avanzan con tu velocidad
+    setInterval(function () {
+      var n = ahora(), dt = (n - ultimoAvance) / 1000; ultimoAvance = n;
+      avanceSinDatos += (velocidad || 0) * dt;
+      if (!modoEntorno || !panelEnt) return;
+      if (camaraActiva()) panelEnt.avanzar(avanceSinDatos);   // líneas fluidas entre datos de la cámara
+      else if (!simTimer) panelEnt.actualizar(null);
+    }, 100);
+  }
+
   // ================= Pantalla de arranque guardada en el iPad =================
   // El acceso directo abre /inicio, que el iPad guarda en su memoria para poder abrirlo sin conexión.
   // Para que termine de guardarse, la cargamos escondida mientras se usa el tablero
@@ -1663,6 +2186,7 @@
     pedirPosicion(); setInterval(pedirPosicion, INTERVALO_POS_MS);
     pedirMusica(); setInterval(pedirMusica, 1500);
     pedirViaje(); setInterval(pedirViaje, 3000);
+    setInterval(pedirEntorno, 150);
     setTimeout(guardarArranque, 8000);
     setInterval(revisarVersion, 30000);
   }
