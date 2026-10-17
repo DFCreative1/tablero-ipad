@@ -121,7 +121,18 @@
   .dock-btn .candado { position: absolute; right: -5px; top: -5px; display: none; }
   body.en-movimiento .dock-btn.bloqueable { opacity: 0.4; }
   body.en-movimiento .dock-btn.bloqueable .candado { display: block; }
-  .dock-nota { margin-left: auto; margin-right: 8px; font-size: 13px; color: var(--suave); display: none; }
+  .dock-nota { margin-right: 18px; font-size: 13px; color: var(--suave); display: none; }
+  /* Grabar: a la derecha del todo, lejos de Videos y Juego */
+  .dock-derecha { margin-left: auto; display: flex; align-items: center; }
+  .dock-grabar { width: 96px; height: 68px; border: 0; background: transparent; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0; }
+  .dock-grabar .ficha { width: 44px; height: 44px; border-radius: 22px; display: flex; align-items: center; justify-content: center; background: transparent; box-shadow: inset 0 0 0 2.5px #E5484D; }
+  .dock-grabar .punto { width: 22px; height: 22px; border-radius: 11px; background: #E5484D; }
+  .dock-grabar .nombre { font-size: 12px; font-weight: 500; color: var(--suave); margin-top: 4px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .dock-grabar.sin-camara { opacity: 0.4; }
+  .dock-grabar.esperando .punto { -webkit-animation: latido 0.6s ease-in-out infinite alternate; animation: latido 0.6s ease-in-out infinite alternate; }
+  .dock-grabar.grabando .ficha { background: #E5484D; box-shadow: none; }
+  .dock-grabar.grabando .punto { width: 16px; height: 16px; border-radius: 3px; background: #FFFFFF; }
+  .dock-grabar.grabando .nombre { color: #E5484D; font-weight: 700; -webkit-animation: latido 0.9s ease-in-out infinite alternate; animation: latido 0.9s ease-in-out infinite alternate; }
   body.en-movimiento .dock-nota { display: block; }
 
   /* ---------- Pantallas del dock ---------- */
@@ -609,7 +620,12 @@
       <span class="ficha" style="background: #138A43"><svg width="26" height="26" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7h10a5 5 0 0 1 4.8 6.3l-1 3.6a2.4 2.4 0 0 1-4.1.9L14.5 15h-5l-2.2 2.8a2.4 2.4 0 0 1-4.1-.9l-1-3.6A5 5 0 0 1 7 7z" fill="#FFFFFF"></path><path d="M7.5 9.5v4M5.5 11.5h4" stroke="#138A43" stroke-width="1.8" stroke-linecap="round"></path><circle cx="16" cy="10.5" r="1.2" fill="#138A43"></circle><circle cx="18" cy="12.8" r="1.2" fill="#138A43"></circle></svg>
         <svg class="candado" width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="12" style="fill: var(--col)"></circle><rect x="7" y="11" width="10" height="8" rx="2" style="fill: var(--suave)"></rect><path d="M9 11V8.5a3 3 0 0 1 6 0V11" fill="none" style="stroke: var(--suave)" stroke-width="2"></path></svg></span>
       <span class="nombre">Juego</span><span class="marca"></span></button>
-    <span class="dock-nota">Videos y juego, con el auto detenido</span>
+    <div class="dock-derecha">
+      <span class="dock-nota">Videos y juego, con el auto detenido</span>
+      <button type="button" class="dock-grabar sin-camara" id="btnGrabar" aria-label="Grabar con la cámara del auto">
+        <span class="ficha"><span class="punto"></span></span>
+        <span class="nombre" id="grabarTxt">Grabar</span></button>
+    </div>
   </nav>
   <div class="atenuador oculto" id="atenuador"></div>
   <div class="toast" id="toast"></div>
@@ -621,7 +637,7 @@
 (function () {
   'use strict';
 
-  var WEB_VERSION = '2.6.0';
+  var WEB_VERSION = '2.7.0';
   var INTERVALO_POS_MS = 500;
   var BUENOS_AIRES = [-58.3816, -34.6037];
   var DEMO = /[?&]demo=1/.test(location.search);
@@ -1046,8 +1062,18 @@
       autoV: geoPerfil([[0.72, 0.84], [0.62, 1.3], [-1.15, 1.33], [-1.95, 0.9]], 1.82),
       colectivo: geoCaja(2.5, 2.7, 11.5, 1.65), colectivoV: geoCaja(2.54, 0.95, 10.6, 2.15),
       moto: geoCaja(0.42, 0.75, 2.0, 0.6), piloto: geoCaja(0.5, 0.75, 0.55, 1.35), casco: new THREE.SphereGeometry(0.17, 10, 8),
-      cuerpo: new THREE.CylinderGeometry(0.2, 0.25, 1.1, 10), cabeza: new THREE.SphereGeometry(0.17, 10, 8)
+      cuerpo: new THREE.CylinderGeometry(0.2, 0.25, 1.1, 10), cabeza: new THREE.SphereGeometry(0.17, 10, 8),
+      // Animal de cuatro patas, tamaño de un perro mediano; los demás se agrandan o achican con ESCALA_ANIMAL
+      animal: geoCaja(0.32, 0.3, 0.8, 0.5), animalPatas: geoCaja(0.26, 0.36, 0.62, 0.18), animalCabeza: geoCaja(0.24, 0.24, 0.28, 0.7)
     };
+    GEO.animalCabeza.translate(0, 0, -0.48);
+    // Obstáculos en la calle: cono, valla (caballete) y cartel sobre patas
+    GEO.cono = new THREE.ConeGeometry(0.22, 0.7, 12); GEO.cono.translate(0, 0.35, 0);
+    GEO.conoBase = geoCaja(0.42, 0.05, 0.42, 0.025);
+    GEO.vallaPanel = geoCaja(1.6, 0.32, 0.08, 0.85); GEO.vallaPatas = geoCaja(1.5, 0.85, 0.06, 0.42);
+    GEO.cartelPanel = geoCaja(1.3, 0.6, 0.08, 1.05); GEO.cartelPatas = geoCaja(1.1, 0.75, 0.06, 0.37);
+    var matCono = new THREE.MeshLambertMaterial({ color: 0xFF8A3D });
+    var ESCALA_ANIMAL = { perro: 1, gato: 0.55, oveja: 1.4, vaca: 2.6, caballo: 2.8 };
     GEO.casco.translate(0, 1.9, 0.05); GEO.cuerpo.translate(0, 0.6, 0); GEO.cabeza.translate(0, 1.36, 0);
     function crearObjeto(tipo) {
       var g = new THREE.Group(), cuerpo = [];
@@ -1055,8 +1081,16 @@
       if (tipo === 'colectivo' || tipo === 'camion') { m(GEO.colectivo, matObj, true); m(GEO.colectivoV, matObjV); }
       else if (tipo === 'moto' || tipo === 'bici') { m(GEO.moto, matObj, true); m(GEO.piloto, matObj, true); m(GEO.casco, matObjV); }
       else if (tipo === 'persona') { m(GEO.cuerpo, matPers, true); m(GEO.cabeza, matPers, true); }
+      else if (tipo === 'cono') { m(GEO.cono, matCono, true); m(GEO.conoBase, matCono, true); }
+      else if (tipo === 'valla') { m(GEO.vallaPanel, matCono, true); m(GEO.vallaPatas, matObjV); }
+      else if (tipo === 'cartel') { m(GEO.cartelPanel, matObj, true); m(GEO.cartelPatas, matObjV); }
+      else if (ESCALA_ANIMAL[tipo]) {
+        m(GEO.animal, matPers, true); m(GEO.animalPatas, matPers, true); m(GEO.animalCabeza, matPers, true);
+        g.scale.setScalar(ESCALA_ANIMAL[tipo]);
+      }
       else { m(GEO.auto, matObj, true); m(GEO.autoV, matObjV); }
-      g.userData = { tipo: tipo, cuerpo: cuerpo, base: tipo === 'persona' ? matPers : matObj };
+      var base = (tipo === 'persona' || ESCALA_ANIMAL[tipo]) ? matPers : (tipo === 'cono' || tipo === 'valla') ? matCono : matObj;
+      g.userData = { tipo: tipo, cuerpo: cuerpo, base: base };
       mundo.add(g); return g;
     }
     // Carriles: calle translúcida y líneas que se desvanecen a lo lejos (un solo objeto cada una, para el iPad viejo)
@@ -1086,6 +1120,132 @@
     var matFranja = new THREE.MeshBasicMaterial({ color: 0xFFB547, transparent: true, opacity: 0.35, depthWrite: false, blending: THREE.AdditiveBlending });
     var franja = new THREE.Mesh(gFranja, matFranja); franja.visible = false; mundo.add(franja);
     var objetos = {}, colorAmb = 0xFFB547;
+
+    // ---- Calles reales (las mismas del mapa 2D), alrededor de tu auto ----
+    // callesRaiz gira con tu rumbo; callesMundo se corre para que tu auto quede en el centro.
+    // Coordenadas locales en metros: x al este, z al sur (el norte es -z), con origen donde se armaron.
+    var callesRaiz = new THREE.Group(), callesMundo = new THREE.Group();
+    callesRaiz.add(callesMundo); escena.add(callesRaiz); callesRaiz.visible = false;
+    var COL_CALLES = { noche: { asfalto: 0x1C2A44, borde: 0x40527A, linea: 0xFFFFFF }, dia: { asfalto: 0xB4BFCD, borde: 0x8794A8, linea: 0xFFFFFF } };
+    function matSuelo(color, opacidad, orden) {
+      // DoubleSide: así no importa para qué lado quedaron armados los triángulos
+      var m = new THREE.MeshBasicMaterial({ color: color, vertexColors: true, transparent: true, depthWrite: false, opacity: opacidad, side: THREE.DoubleSide });
+      return { m: m, orden: orden };
+    }
+    var capas = {
+      borde: matSuelo(COL_CALLES.noche.borde, 0.9, -6), asfalto: matSuelo(COL_CALLES.noche.asfalto, 0.95, -5),
+      linea: matSuelo(COL_CALLES.noche.linea, 0.5, -4), ruta: matSuelo(0x3B9EFF, 0.45, -3)
+    };
+    var mallas = {}, tramosCerca = [], callesOrigen = null, conCalles = false;
+    var ajuste = { x: 0, z: 0 }, rumboVista = null;
+    var RADIO_CALLES = 170;
+    function alfaDist(x, z) { var d = Math.sqrt(x * x + z * z); return d < 90 ? 1 : Math.max(0, 1 - (d - 90) / (RADIO_CALLES - 90)); }
+    // Agrega una cinta (rectángulos por tramo + uniones) a pos/col
+    function cinta(pos, col, pts, medio, y) {
+      for (var i = 0; i < pts.length - 1; i++) {
+        var a = pts[i], b = pts[i + 1], dx = b[0] - a[0], dz = b[1] - a[1], L = Math.sqrt(dx * dx + dz * dz);
+        if (L < 0.01) continue;
+        var nx = -dz / L * medio, nz = dx / L * medio;
+        var p0 = [a[0] + nx, a[1] + nz], p1 = [a[0] - nx, a[1] - nz], p2 = [b[0] - nx, b[1] - nz], p3 = [b[0] + nx, b[1] + nz];
+        var al = alfaDist(a[0], a[1]), bl = alfaDist(b[0], b[1]);
+        pos.push(p0[0], y, p0[1], p1[0], y, p1[1], p2[0], y, p2[1], p0[0], y, p0[1], p2[0], y, p2[1], p3[0], y, p3[1]);
+        col.push(1, 1, 1, al, 1, 1, 1, al, 1, 1, 1, bl, 1, 1, 1, al, 1, 1, 1, bl, 1, 1, 1, bl);
+      }
+      // Uniones redondeadas (hexágonos) solo donde la calle dobla, para que no queden huecos en las esquinas
+      // (en los tramos rectos no hacen falta y, encimadas, se notarían en las capas transparentes)
+      for (var j = 1; j < pts.length - 1; j++) {
+        var c = pts[j], ant = pts[j - 1], sig = pts[j + 1];
+        var d1x = c[0] - ant[0], d1z = c[1] - ant[1], d2x = sig[0] - c[0], d2z = sig[1] - c[1];
+        var cruz = d1x * d2z - d1z * d2x, punto = d1x * d2x + d1z * d2z;
+        if (Math.abs(Math.atan2(cruz, punto)) < 0.06) continue;      // menos de ~3,5°: recto
+        var aa = alfaDist(c[0], c[1]);
+        for (var k = 0; k < 6; k++) {
+          var t0 = k * Math.PI / 3, t1 = (k + 1) * Math.PI / 3;
+          pos.push(c[0], y, c[1], c[0] + Math.cos(t0) * medio, y, c[1] + Math.sin(t0) * medio, c[0] + Math.cos(t1) * medio, y, c[1] + Math.sin(t1) * medio);
+          col.push(1, 1, 1, aa, 1, 1, 1, aa, 1, 1, 1, aa);
+        }
+      }
+    }
+    // Línea punteada del medio (3 m de línea, 6 de espacio), siguiendo la calle
+    function punteada(pos, col, pts, y) {
+      var fase = 0;
+      for (var i = 0; i < pts.length - 1; i++) {
+        var a = pts[i], b = pts[i + 1], dx = b[0] - a[0], dz = b[1] - a[1], L = Math.sqrt(dx * dx + dz * dz);
+        if (L < 0.01) continue;
+        var ux = dx / L, uz = dz / L, nx = -uz * 0.08, nz = ux * 0.08, t = -fase;
+        while (t < L) {
+          var t0 = Math.max(0, t), t1 = Math.min(L, t + 3);
+          if (t1 > t0) {
+            var x0 = a[0] + ux * t0, z0 = a[1] + uz * t0, x1 = a[0] + ux * t1, z1 = a[1] + uz * t1, al = alfaDist(x0, z0);
+            pos.push(x0 + nx, y, z0 + nz, x0 - nx, y, z0 - nz, x1 - nx, y, z1 - nz, x0 + nx, y, z0 + nz, x1 - nx, y, z1 - nz, x1 + nx, y, z1 + nz);
+            for (var q = 0; q < 6; q++) col.push(1, 1, 1, al);
+          }
+          t += 9;
+        }
+        fase = (fase + L) % 9;
+      }
+    }
+    function malla(nombre, pos, col) {
+      if (mallas[nombre]) { callesMundo.remove(mallas[nombre]); mallas[nombre].geometry.dispose(); mallas[nombre] = null; }
+      if (!pos.length) return;
+      var g = new THREE.BufferGeometry();
+      g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+      g.setAttribute('color', new THREE.Float32BufferAttribute(col, 4));
+      var me = new THREE.Mesh(g, capas[nombre].m); me.renderOrder = capas[nombre].orden; me.frustumCulled = false;
+      callesMundo.add(me); mallas[nombre] = me;
+    }
+    // datos: { calles: [{ pts: [[x,z]], ancho, unaMano }], ruta: [[[x,z]]] (tramos) o null }  (ya en metros locales)
+    function armarCalles(datos, origen) {
+      if (!datos || !datos.calles.length) { conCalles = false; callesRaiz.visible = false; calle.visible = bordes.visible = discontinuas.visible = true; pedirCuadro(); return; }
+      var pb = [], cb = [], pa = [], ca = [], pl = [], cl = [], pr = [], cr = [];
+      tramosCerca = [];
+      datos.calles.forEach(function (c) {
+        cinta(pb, cb, c.pts, c.ancho / 2 + 0.25, 0.03);
+        cinta(pa, ca, c.pts, c.ancho / 2, 0.04);
+        if (!c.unaMano && c.ancho >= 6) punteada(pl, cl, c.pts, 0.06);
+        for (var i = 0; i < c.pts.length - 1; i++) {
+          var a = c.pts[i], b = c.pts[i + 1];
+          if (Math.min(a[0] * a[0] + a[1] * a[1], b[0] * b[0] + b[1] * b[1]) < 120 * 120) tramosCerca.push({ a: a, b: b, ancho: c.ancho, unaMano: c.unaMano });
+        }
+      });
+      (datos.ruta || []).forEach(function (t) { cinta(pr, cr, t, 1.4, 0.07); });   // apenas arriba del suelo (y como la calle recta), si no lo tapa el piso
+      malla('borde', pb, cb); malla('asfalto', pa, ca); malla('linea', pl, cl); malla('ruta', pr, cr);
+      callesOrigen = origen; conCalles = true; callesRaiz.visible = true;
+      calle.visible = bordes.visible = discontinuas.visible = false;   // la calle recta inventada ya no hace falta
+      pedirCuadro();
+    }
+    // Cada cuadro: ubica las calles según dónde estás y para dónde vas.
+    // Te "pega" a la calle más cercana (del lado derecho si es doble mano) para que el GPS no te deje en la vereda.
+    function ubicarCalles(p) {
+      if (!conCalles || !callesOrigen || !p) return;
+      var m = callesOrigen.m;
+      var cx = (p.lng - callesOrigen.lng) * m.x, cz = -(p.lat - callesOrigen.lat) * m.y;
+      var h = p.h || 0, hr = h * Math.PI / 180, fx = Math.sin(hr), fz = -Math.cos(hr);   // hacia adelante, en locales
+      var mejor = null;
+      for (var i = 0; i < tramosCerca.length; i++) {
+        var t = tramosCerca[i], dx = t.b[0] - t.a[0], dz = t.b[1] - t.a[1], L2 = dx * dx + dz * dz;
+        if (L2 < 0.0001) continue;
+        var k = Math.max(0, Math.min(1, ((cx - t.a[0]) * dx + (cz - t.a[1]) * dz) / L2));
+        var px = t.a[0] + dx * k, pz = t.a[1] + dz * k, d = Math.sqrt((cx - px) * (cx - px) + (cz - pz) * (cz - pz));
+        var L = Math.sqrt(L2), ux = dx / L, uz = dz / L, cosA = ux * fx + uz * fz;
+        if (Math.abs(cosA) < 0.64) continue;            // la calle va para otro lado (más de 50°)
+        var costo = d + (1 - Math.abs(cosA)) * 20;
+        if (d < 16 && (!mejor || costo < mejor.costo)) mejor = { costo: costo, px: px, pz: pz, ux: cosA < 0 ? -ux : ux, uz: cosA < 0 ? -uz : uz, t: t };
+      }
+      var objX = 0, objZ = 0, rumboObj = h;
+      if (mejor) {
+        var lado = mejor.t.unaMano ? 0 : mejor.t.ancho / 4;           // carril derecho
+        var rx = -mejor.uz, rz = mejor.ux;                              // a la derecha del sentido de marcha
+        objX = mejor.px + rx * lado - cx; objZ = mejor.pz + rz * lado - cz;
+        var rumboCalle = (Math.atan2(mejor.ux, -mejor.uz) * 180 / Math.PI + 360) % 360;
+        rumboObj = interpAngulo(h, rumboCalle, 0.7);                     // alineamos con la calle, sin ignorar el GPS
+      }
+      ajuste.x += (objX - ajuste.x) * 0.12; ajuste.z += (objZ - ajuste.z) * 0.12;
+      rumboVista = rumboVista === null ? rumboObj : interpAngulo(rumboVista, rumboObj, 0.15);
+      callesRaiz.rotation.y = rumboVista * Math.PI / 180;
+      callesMundo.position.set(-(cx + ajuste.x), 0, -(cz + ajuste.z));
+      pedirCuadro();
+    }
     function temaEntorno(t) {
       var c = COL_ENT[t === 'dia' ? 'dia' : 'noche'];
       matObj.color.setHex(c.cuerpo); matObjV.color.setHex(c.vidrio); matPers.color.setHex(c.persona);
@@ -1093,6 +1253,9 @@
       matLineas.opacity = t === 'dia' ? 0.7 : 0.55;
       // De noche la franja brilla; de día, sobre fondo claro, va como color suave
       matFranja.blending = t === 'dia' ? THREE.NormalBlending : THREE.AdditiveBlending; matFranja.needsUpdate = true;
+      var cc = COL_CALLES[t === 'dia' ? 'dia' : 'noche'];
+      capas.borde.m.color.setHex(cc.borde); capas.asfalto.m.color.setHex(cc.asfalto); capas.linea.m.color.setHex(cc.linea);
+      capas.linea.m.opacity = t === 'dia' ? 0.85 : 0.5;
     }
     function actualizarEntorno(d) {
       if (!d) d = { objetos: [], avance: avanceSinDatos };
@@ -1130,7 +1293,8 @@
       tema: function (t) { temaEntorno(t); pedirCuadro(); },
       ambiente: function (hex) { colorAmb = new THREE.Color(hex).getHex(); matLider.color.set(hex); pedirCuadro(); },
       medir: medir, pedirCuadro: pedirCuadro,
-      avanzar: function (m) { discontinuas.position.z = m % PERIODO; pedirCuadro(); }
+      avanzar: function (m) { discontinuas.position.z = m % PERIODO; pedirCuadro(); },
+      calles: armarCalles, ubicar: ubicarCalles, origenCalles: function () { return conCalles ? callesOrigen : null; }
     };
   }
 
@@ -1160,6 +1324,7 @@
 
   function colocar(p) {
     if (auto3d) auto3d.mover(p);
+    if (panelEnt) { actualizarCallesEntorno(p); panelEnt.ubicar(p); }
     if (siguiendo && mapaListo) mapa.jumpTo({ center: [p.lng, p.lat], bearing: vista === '2d' ? 0 : p.h });
   }
 
@@ -2059,16 +2224,143 @@
       if (r && r.datos && r.edad !== null && r.edad < 1500) {
         entornoReal = r.datos; entornoRealT = ahora() - r.edad;
         procesarEntornoReal(r.datos);
+        avisosGrabar(r.datos);
       }
     }, function () { pidiendoEntorno = false; });
   }
+  // Personas y animales chicos no cuentan como "el de adelante", pero avisan si están cerca de tu carril.
+  // Caballos y vacas sí: si están en tu carril son un obstáculo como un auto.
+  var PEATONES = { persona: 1, perro: 1, gato: 1, oveja: 1 };
+  // ---- Grabar con la cámara del auto (el iPhone de la cámara guarda el video en sus Fotos) ----
+  // El pedido viaja: iPad -> iPhone principal (/camara/grabar) -> iPhone de la cámara (en la respuesta a sus envíos).
+  // El estado vuelve en los datos de la cámara: { grabando, grabSeg, grabMsg }.
+  var grabarPedido = null;   // { on, t } mientras esperamos que la cámara responda
+  function textoTiempo(seg) { seg = Math.max(0, Math.round(seg || 0)); var m = Math.floor(seg / 60), s = seg % 60; return (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s; }
+  function mostrarGrabar() {
+    var b = $('btnGrabar'), txt = $('grabarTxt'), hay = camaraActiva(), g = hay && entornoReal && entornoReal.grabando;
+    if (grabarPedido && (ahora() - grabarPedido.t > 8000 || (hay && !!g === grabarPedido.on))) grabarPedido = null;
+    var clase = 'dock-grabar' + (!hay ? ' sin-camara' : '') + (g ? ' grabando' : '') + (grabarPedido ? ' esperando' : '');
+    if (b.className !== clase) b.className = clase;
+    var t = g ? 'REC ' + textoTiempo(entornoReal.grabSeg) : (grabarPedido && grabarPedido.on ? 'Iniciando…' : 'Grabar');
+    if (txt.textContent !== t) txt.textContent = t;
+    b.setAttribute('aria-label', g ? 'Detener la grabación' : 'Grabar con la cámara del auto');
+  }
+  var ultimoMsgGrab = null;
+  function avisosGrabar(datos) {
+    if (datos && datos.grabMsg && datos.grabMsg !== ultimoMsgGrab) { ultimoMsgGrab = datos.grabMsg; toast(datos.grabMsg.replace(/^\d+:/, '')); }
+  }
+  $('btnGrabar').addEventListener('click', function () {
+    if (!camaraActiva()) { toast('Conectá el iPhone de la cámara para grabar'); return; }
+    var on = !(entornoReal && entornoReal.grabando);
+    grabarPedido = { on: on, t: ahora() }; mostrarGrabar();
+    pedirJSON('/camara/grabar?on=' + (on ? 1 : 0) + '&t=' + ahora(), 2000, function () {}, function () { grabarPedido = null; mostrarGrabar(); toast('No se pudo hablar con el iPhone'); });
+  });
+  setInterval(mostrarGrabar, 500);
+
+  // ---- Calles reales para el panel 3D: salen del mismo mapa (OpenFreeMap) que ya está cargado ----
+  var ANCHO_CALLE = { motorway: 14, trunk: 12, primary: 11, secondary: 10, tertiary: 9, minor: 7.5, service: 4.5, busway: 7 };
+  var callesEstado = null;
+  function obtenerCallesMapa() {
+    if (window.CALLES_PRUEBA) return window.CALLES_PRUEBA;          // solo para probar sin internet
+    if (!mapaListo) return [];
+    try { return mapa.querySourceFeatures('omt', { sourceLayer: 'transportation' }); } catch (e) { return []; }
+  }
+  // Parte del segmento a-b que cae dentro del círculo de radio R alrededor de (0,0); null si no lo toca
+  function recortar(a, b, R) {
+    var dx = b[0] - a[0], dz = b[1] - a[1], A = dx * dx + dz * dz;
+    var B = 2 * (a[0] * dx + a[1] * dz), C = a[0] * a[0] + a[1] * a[1] - R * R;
+    if (A < 1e-9) return C <= 0 ? [a, b] : null;
+    var disc = B * B - 4 * A * C;
+    if (disc <= 0) return null;
+    var sq = Math.sqrt(disc), t0 = (-B - sq) / (2 * A), t1 = (-B + sq) / (2 * A);
+    if (t1 < 0 || t0 > 1) return null;
+    var p0 = t0 > 0 ? [a[0] + dx * t0, a[1] + dz * t0] : a, p1 = t1 < 1 ? [a[0] + dx * t1, a[1] + dz * t1] : b;
+    return [p0, p1];
+  }
+  // Recorta una línea (ya en metros locales) al círculo de radio R y la parte cada 15 m, así se desvanece suave
+  // a lo lejos. Una avenida puede tener kilómetros y puntas muy lejos aunque pase justo al lado.
+  function partir(pts, R) {
+    var tramos = [], tramo = [];
+    function cerrar() { if (tramo.length > 1) tramos.push(tramo); tramo = []; }
+    for (var i = 0; i < pts.length - 1; i++) {
+      var a = pts[i], b = pts[i + 1], r = recortar(a, b, R);
+      if (!r) { cerrar(); continue; }
+      var largo = Math.sqrt((r[1][0] - r[0][0]) * (r[1][0] - r[0][0]) + (r[1][1] - r[0][1]) * (r[1][1] - r[0][1]));
+      var n = Math.max(1, Math.ceil(largo / 15));
+      var ult = tramo.length ? tramo[tramo.length - 1] : null;
+      if (!ult || ult[0] !== r[0][0] || ult[1] !== r[0][1]) { cerrar(); tramo.push(r[0]); }
+      for (var k = 1; k <= n; k++) tramo.push([r[0][0] + (r[1][0] - r[0][0]) * k / n, r[0][1] + (r[1][1] - r[0][1]) * k / n]);
+      if (r[1] !== b) cerrar();
+    }
+    cerrar();
+    return tramos;
+  }
+  // Corre la línea de la ruta hacia el carril derecho de la calle por la que pasa (si es doble mano)
+  function aCarril(t, calles) {
+    return t.map(function (q, i) {
+      var a = t[Math.max(0, i - 1)], b = t[Math.min(t.length - 1, i + 1)], dx = b[0] - a[0], dz = b[1] - a[1], L = Math.sqrt(dx * dx + dz * dz);
+      if (L < 0.01) return q;
+      var ux = dx / L, uz = dz / L, mejor = null;
+      calles.forEach(function (c) {
+        for (var k = 0; k < c.pts.length - 1; k++) {
+          var p0 = c.pts[k], p1 = c.pts[k + 1], ex = p1[0] - p0[0], ez = p1[1] - p0[1], E2 = ex * ex + ez * ez;
+          if (E2 < 0.0001) continue;
+          var E = Math.sqrt(E2);
+          if (Math.abs((ex * ux + ez * uz) / E) < 0.9) continue;
+          var s = Math.max(0, Math.min(1, ((q[0] - p0[0]) * ex + (q[1] - p0[1]) * ez) / E2));
+          var d = Math.sqrt(Math.pow(q[0] - p0[0] - ex * s, 2) + Math.pow(q[1] - p0[1] - ez * s, 2));
+          if (d < 8 && (!mejor || d < mejor.d)) mejor = { d: d, c: c };
+        }
+      });
+      if (!mejor || mejor.c.unaMano) return q;
+      var lado = mejor.c.ancho / 4;
+      return [q[0] - uz * lado, q[1] + ux * lado];     // a la derecha del sentido de marcha
+    });
+  }
+  function datosCalles(p) {
+    var m = metrosLocales(p.lat), R = 180, calles = [];
+    function local(c) { return [(c[0] - p.lng) * m.x, -(c[1] - p.lat) * m.y]; }
+    obtenerCallesMapa().forEach(function (f) {
+      var pr = f.properties || {}, ancho = ANCHO_CALLE[pr['class']], g = f.geometry;
+      if (!ancho || !g || pr.brunnel === 'tunnel') return;
+      if (pr.ramp === 1) ancho *= 0.6;
+      var lineas = g.type === 'LineString' ? [g.coordinates] : g.type === 'MultiLineString' ? g.coordinates : [];
+      lineas.forEach(function (l) {
+        partir(l.map(local), R).forEach(function (t) { calles.push({ pts: t, ancho: ancho, unaMano: pr.oneway === 1 || pr.oneway === -1 }); });
+      });
+    });
+    var linea = null;
+    if (ruta && ruta.coords) {
+      var rp = [];
+      for (var j = Math.max(0, ruta.idx); j < ruta.coords.length; j++) {
+        rp.push(local(ruta.coords[j]));
+        if (ruta.acum && ruta.acum[j] - ruta.acum[ruta.idx] > 450) break;
+      }
+      linea = partir(rp, R).map(function (t) { return aCarril(t, calles); });
+    }
+    return { calles: calles, ruta: linea, m: m };
+  }
+  function actualizarCallesEntorno(p) {
+    if (!panelEnt || !p) return;
+    if (simTimer) { if (callesEstado) { panelEnt.calles(null); callesEstado = null; } return; }   // la simulación usa la calle recta
+    var t = ahora(), claveRuta = ruta && ruta.coords ? ruta.t + ':' + ruta.idx : '';
+    if (callesEstado) {
+      var m = metrosLocales(p.lat), dx = (p.lng - callesEstado.lng) * m.x, dy = (p.lat - callesEstado.lat) * m.y;
+      var lejos = dx * dx + dy * dy > 15 * 15, sinDatos = !callesEstado.hay && t - callesEstado.t > 3000;
+      if (!lejos && !sinDatos && claveRuta === callesEstado.ruta) return;
+    }
+    var d = datosCalles(p);
+    panelEnt.calles(d.calles.length ? d : null, { lng: p.lng, lat: p.lat, m: d.m });
+    callesEstado = { lng: p.lng, lat: p.lat, t: t, hay: d.calles.length > 0, ruta: claveRuta };
+  }
+
   // Decide cuál es el auto de adelante y si hay que avisar, con lo que vio la cámara
   function procesarEntornoReal(datos) {
     var vYo = velocidad !== null ? velocidad : 0;
     var lider = null, objs = datos.objetos || [];
     for (var i = 0; i < objs.length; i++) {
       var o = objs[i];
-      if (o.tipo === 'persona' || Math.abs(o.x) > 1.6 || o.d <= 0) continue;
+      if (PEATONES[o.tipo] || Math.abs(o.x) > 1.6 || o.d <= 0) continue;
       if (!lider || o.d < lider.d) lider = o;
     }
     var hueco = lider ? Math.max(0, lider.d - LARGO_PROPIO / 2) : null;
@@ -2079,7 +2371,7 @@
     for (var j = 0; j < objs.length; j++) {
       var ob = objs[j], estado = '';
       if (ob === lider) estado = peligro ? 'peligro' : 'lider';
-      else if (ob.tipo === 'persona' && Math.abs(ob.x) < 2.5 && ob.d < 15) estado = 'aviso';
+      else if (PEATONES[ob.tipo] && Math.abs(ob.x) < 2.5 && ob.d < 15) estado = 'aviso';
       lista.push({ id: ob.id, tipo: ob.tipo, x: ob.x, y: ob.y, estado: estado });
     }
     if (panelEnt) panelEnt.actualizar({ avance: avanceSinDatos, lider: lider, peligro: peligro, objetos: lista });
