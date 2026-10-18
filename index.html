@@ -637,7 +637,7 @@
 (function () {
   'use strict';
 
-  var WEB_VERSION = '2.7.0';
+  var WEB_VERSION = '2.7.1';
   var INTERVALO_POS_MS = 500;
   var BUENOS_AIRES = [-58.3816, -34.6037];
   var DEMO = /[?&]demo=1/.test(location.search);
@@ -916,14 +916,97 @@
   // ================= Auto 3D =================
   var auto3d = null, marcador = null;
 
+  // ================= Modelos de vehículos redondeados (para tu auto y los del panel 3D) =================
+  // Cada pieza se arma con "rebanadas" a lo largo del auto: cada rebanada es una sección redondeada
+  // (superelipse) con su ancho, piso y techo. Así la carrocería es más ancha abajo, la cabina se angosta
+  // hacia el techo y los extremos se redondean (de atrás ya no parece un ladrillo).
+  // z negativo = la trompa. Medidas en metros.
+  function piezaRedonda(anillos, puntas, redondez, angostaArriba) {
+    var pos = [], idx = [], N = puntas, n = redondez, tr = angostaArriba || 1;
+    function punto(a, k) {
+      var t = k / N * Math.PI * 2, c = Math.cos(t), s = Math.sin(t);
+      var ex = (c < 0 ? -1 : 1) * Math.pow(Math.abs(c), 2 / n), ey = (s < 0 ? -1 : 1) * Math.pow(Math.abs(s), 2 / n);
+      var y = (a[2] + a[3]) / 2 + ey * (a[3] - a[2]) / 2, rel = (y - a[2]) / Math.max(0.001, a[3] - a[2]);
+      return [ex * a[1] / 2 * (1 - (1 - tr) * rel), y, a[0]];
+    }
+    anillos.forEach(function (a) { for (var k = 0; k < N; k++) Array.prototype.push.apply(pos, punto(a, k)); });
+    for (var i = 0; i < anillos.length - 1; i++) for (var k = 0; k < N; k++) {
+      var a = i * N + k, b = i * N + (k + 1) % N, c = (i + 1) * N + k, d = (i + 1) * N + (k + 1) % N;
+      idx.push(a, c, b, b, c, d);
+    }
+    var lados = new THREE.BufferGeometry();
+    lados.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); lados.setIndex(idx); lados.computeVertexNormals();
+    // Tapas de adelante y de atrás (con sus propios vértices, así quedan planas y bien iluminadas)
+    var tapas = [];
+    [0, anillos.length - 1].forEach(function (ia) {
+      var a = anillos[ia], cp = [], cy = (a[2] + a[3]) / 2;
+      for (var k = 0; k < N; k++) {
+        var p0 = punto(a, k), p1 = punto(a, (k + 1) % N);
+        cp.push(0, cy, a[0], p0[0], p0[1], p0[2], p1[0], p1[1], p1[2]);
+      }
+      var g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(cp, 3)); g.computeVertexNormals(); tapas.push(g);
+    });
+    return [lados].concat(tapas);
+  }
+  function juntarGeos(lista) {
+    var pos = [], nor = [];
+    lista.forEach(function (g) {
+      var n = g.index ? g.toNonIndexed() : g;
+      if (!n.attributes.normal) n.computeVertexNormals();
+      Array.prototype.push.apply(pos, n.attributes.position.array);
+      Array.prototype.push.apply(nor, n.attributes.normal.array);
+    });
+    var r = new THREE.BufferGeometry();
+    r.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    r.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
+    return r;
+  }
+  // anillos: [z, ancho, piso, techo]
+  var MODELOS_AUTO = {
+    sedan: { largo: 4.6, ancho: 1.82, ejes: [-1.42, 1.45], radio: 0.33, luz: [2.31, 0.76, 0.56],
+      cuerpo: [[-2.3, 1.5, 0.34, 0.6], [-2.17, 1.72, 0.3, 0.74], [-1.6, 1.8, 0.28, 0.82], [-0.6, 1.82, 0.28, 0.86], [1.2, 1.82, 0.28, 0.9], [2.0, 1.76, 0.3, 0.92], [2.3, 1.58, 0.36, 0.86]],
+      cabina: [[-1.08, 1.64, 0.78, 0.84], [-0.45, 1.54, 0.78, 1.3], [0.95, 1.52, 0.78, 1.34], [1.72, 1.56, 0.78, 0.98], [1.95, 1.6, 0.78, 0.86]],
+      techo: [[-0.5, 0.95, 1.24, 1.27], [-0.36, 1.16, 1.23, 1.335], [0.9, 1.14, 1.26, 1.37], [1.08, 0.95, 1.28, 1.31]] },
+    hatch: { largo: 4.0, ancho: 1.74, ejes: [-1.25, 1.25], radio: 0.32, luz: [2.01, 0.86, 0.6],
+      cuerpo: [[-2.0, 1.48, 0.34, 0.62], [-1.86, 1.68, 0.3, 0.78], [-1.2, 1.74, 0.28, 0.88], [1.2, 1.76, 0.28, 0.95], [1.88, 1.72, 0.3, 0.98], [2.0, 1.6, 0.36, 0.94]],
+      cabina: [[-0.98, 1.58, 0.84, 0.9], [-0.36, 1.5, 0.84, 1.4], [1.6, 1.48, 0.84, 1.44], [1.88, 1.52, 0.84, 1.2], [1.97, 1.56, 0.84, 0.98]],
+      techo: [[-0.42, 0.95, 1.33, 1.37], [-0.26, 1.14, 1.32, 1.445], [1.55, 1.12, 1.36, 1.485], [1.74, 0.98, 1.36, 1.41]] },
+    suv: { largo: 4.7, ancho: 1.92, ejes: [-1.48, 1.5], radio: 0.38, luz: [2.36, 0.98, 0.62],
+      cuerpo: [[-2.35, 1.62, 0.4, 0.8], [-2.2, 1.84, 0.36, 0.98], [-1.5, 1.9, 0.34, 1.06], [1.6, 1.9, 0.34, 1.1], [2.2, 1.86, 0.36, 1.12], [2.35, 1.72, 0.42, 1.06]],
+      cabina: [[-1.28, 1.74, 1.0, 1.06], [-0.62, 1.68, 1.0, 1.62], [1.9, 1.66, 1.0, 1.66], [2.2, 1.68, 1.0, 1.3], [2.32, 1.7, 1.0, 1.12]],
+      techo: [[-0.66, 1.05, 1.54, 1.58], [-0.5, 1.29, 1.54, 1.685], [1.88, 1.27, 1.57, 1.725], [2.08, 1.05, 1.59, 1.62]] },
+    utilitario: { largo: 5.4, ancho: 2.0, ejes: [-1.85, 1.9], radio: 0.4, luz: [2.71, 0.95, 0.85],
+      cuerpo: [[-2.7, 1.8, 0.42, 0.92], [-2.55, 1.96, 0.38, 1.06], [-1.9, 2.0, 0.36, 1.16], [2.6, 2.0, 0.36, 1.2], [2.7, 1.9, 0.42, 1.14]],
+      cabina: [[-2.2, 1.84, 1.04, 1.1], [-1.55, 1.8, 1.04, 1.98], [-0.95, 1.8, 1.04, 2.1]],
+      techo: [[-1.25, 1.86, 1.1, 2.0], [-0.95, 1.99, 1.1, 2.36], [2.62, 1.99, 1.1, 2.4], [2.7, 1.9, 1.12, 2.32]] },
+    colectivo: { largo: 11.5, ancho: 2.5, ejes: [-3.8, 3.6], radio: 0.5, luz: [5.76, 0.95, 1.0],
+      cuerpo: [[-5.75, 2.4, 0.42, 2.7], [-5.6, 2.5, 0.36, 3.0], [5.6, 2.5, 0.36, 3.05], [5.75, 2.42, 0.42, 2.95]],
+      cabina: [[-5.68, 2.3, 1.55, 2.6], [-5.55, 2.54, 1.55, 2.62], [5.35, 2.54, 1.6, 2.62], [5.45, 2.4, 1.6, 2.6]],
+      techo: [] }
+  };
+  function geometriaAuto(nombre) {
+    var m = MODELOS_AUTO[nombre], cuerpo = piezaRedonda(m.cuerpo, 14, 4, 0.94);
+    var esBloque = nombre === 'utilitario' || nombre === 'colectivo';
+    if (m.techo.length) cuerpo = cuerpo.concat(piezaRedonda(m.techo, 16, esBloque ? 7 : 3.2, esBloque ? 0.96 : 0.92));
+    var vidrio = juntarGeos(piezaRedonda(m.cabina, 14, esBloque ? 8 : 3, esBloque ? 0.98 : 0.8));
+    var ruedas = [];
+    m.ejes.forEach(function (z) { [-1, 1].forEach(function (lado) {
+      var c = new THREE.CylinderGeometry(m.radio, m.radio, 0.24, 12); c.rotateZ(Math.PI / 2); c.translate(lado * (m.ancho / 2 - 0.1), m.radio, z); ruedas.push(c);
+    }); });
+    var l1 = new THREE.BoxGeometry(0.42, 0.1, 0.05), l2 = new THREE.BoxGeometry(0.42, 0.1, 0.05);
+    l1.translate(-m.luz[2], m.luz[1], m.luz[0]); l2.translate(m.luz[2], m.luz[1], m.luz[0]);
+    return { cuerpo: juntarGeos(cuerpo), vidrio: vidrio, ruedas: juntarGeos(ruedas), luces: juntarGeos([l1, l2]),
+             atras: m.luz[0], yLuz: m.luz[1], largo: m.largo, anchoT: m.ancho + 0.2 };
+  }
+
   function crearAuto3D() {
     var ESCALA = 4; // el auto se dibuja más grande que en la realidad para que se vea bien
     var camara = new THREE.Camera(), escena = new THREE.Scene(), render = null, grupo = new THREE.Group();
     escena.add(new THREE.AmbientLight(0xffffff, 0.75));
     var sol = new THREE.DirectionalLight(0xffffff, 0.6); sol.position.set(30, 80, 40); escena.add(sol);
 
-    var matCarro = new THREE.MeshLambertMaterial({ color: 0xF4F6F8 });
-    var matVidrio = new THREE.MeshLambertMaterial({ color: 0x0B2230 });
+    var matCarro = new THREE.MeshLambertMaterial({ color: 0xF4F6F8, side: THREE.DoubleSide });
+    var matVidrio = new THREE.MeshLambertMaterial({ color: 0x0B2230, side: THREE.DoubleSide });
     var matRueda = new THREE.MeshLambertMaterial({ color: 0x0A0F18 });
     var matLuz = new THREE.MeshBasicMaterial({ color: 0xFFF7D6 });
     var matFreno = new THREE.MeshBasicMaterial({ color: 0x5A1218 });
@@ -931,7 +1014,7 @@
     // Haz de luz de un faro: trapecio sobre el piso que se desvanece hacia adelante
     function haz(x0) {
       var g = new THREE.BufferGeometry();
-      var cerca = 0.3, lejos = 1.5, z0 = -2.25, z1 = -10, xl = x0 * 1.5;
+      var cerca = 0.3, lejos = 1.5, z0 = -2.1, z1 = -10, xl = x0 * 1.5;
       g.setAttribute('position', new THREE.Float32BufferAttribute([
         x0 - cerca, 0.06, z0, x0 + cerca, 0.06, z0, xl + lejos, 0.06, z1,
         x0 - cerca, 0.06, z0, xl + lejos, 0.06, z1, xl - lejos, 0.06, z1], 3));
@@ -953,38 +1036,27 @@
     var halo = new THREE.Mesh(new THREE.PlaneGeometry(9, 12), matHalo);
     halo.rotation.x = -Math.PI / 2; halo.position.set(0, 0.03, 0.2); grupo.add(halo);
     // Barras de luz finas: diurna adelante, de posición atrás
-    caja(1.5, 0.05, 0.04, matLuz, 0, 0.66, -2.23);
-    caja(1.6, 0.06, 0.04, matFreno, 0, 0.82, 2.23);
+    caja(1.3, 0.05, 0.04, matLuz, 0, 0.7, -1.99);
+    caja(1.3, 0.05, 0.04, matFreno, 0, 0.84, 2.0);
     // Resplandor de las luces de freno
     var brillo = new THREE.Mesh(new THREE.PlaneGeometry(1.9, 0.4), new THREE.MeshBasicMaterial({ color: 0xFF2D3D, transparent: true,
       opacity: 0.18, depthWrite: false, blending: THREE.AdditiveBlending }));
-    brillo.position.set(0, 0.72, 2.35); brillo.visible = false; grupo.add(brillo);
+    brillo.position.set(0, 0.8, 2.15); brillo.visible = false; grupo.add(brillo);
     var esNoche = true, frenado = false;
     function luces() {
       hazIzq.visible = hazDer.visible = esNoche;
       matFreno.color.setHex(frenado ? 0xE8323F : (esNoche ? 0x8A1A24 : 0x5A1218));
       brillo.visible = frenado;
     }
-    // Silueta lateral (x = largo, con la trompa hacia +x; y = alto), extruida a lo ancho
-    function perfil(puntos, ancho, mat) {
-      var forma = new THREE.Shape();
-      forma.moveTo(puntos[0][0], puntos[0][1]);
-      for (var i = 1; i < puntos.length; i++) forma.lineTo(puntos[i][0], puntos[i][1]);
-      var geo = new THREE.ExtrudeGeometry(forma, { depth: ancho, bevelEnabled: false });
-      geo.translate(0, 0, -ancho / 2);
-      geo.rotateY(Math.PI / 2); // la trompa queda hacia -z
-      var m = new THREE.Mesh(geo, mat); grupo.add(m); return m;
-    }
-    perfil([[-2.2, 0.25], [2.2, 0.25], [2.2, 0.6], [1.9, 0.78], [0.9, 0.85], [0.35, 1.35], [-1.0, 1.38], [-1.8, 0.95], [-2.2, 0.85]], 1.8, matCarro);
-    perfil([[0.95, 0.86], [0.4, 1.33], [-0.95, 1.35], [-1.85, 0.93]], 1.86, matVidrio);
-    caja(0.42, 0.12, 0.05, matLuz, -0.6, 0.55, -2.22);
-    caja(0.42, 0.12, 0.05, matLuz, 0.6, 0.55, -2.22);
-    caja(0.46, 0.12, 0.05, matFreno, -0.6, 0.72, 2.22);
-    caja(0.46, 0.12, 0.05, matFreno, 0.6, 0.72, 2.22);
-    [[-0.92, -1.35], [0.92, -1.35], [-0.92, 1.4], [0.92, 1.4]].forEach(function (p) {
-      var r = new THREE.Mesh(new THREE.CylinderGeometry(0.36, 0.36, 0.26, 16), matRueda);
-      r.rotation.z = Math.PI / 2; r.position.set(p[0], 0.36, p[1]); grupo.add(r);
-    });
+    // Tu Ford Fiesta (hatchback), redondeado como los del panel
+    var geoFiesta = geometriaAuto('hatch');
+    grupo.add(new THREE.Mesh(geoFiesta.cuerpo, matCarro));
+    grupo.add(new THREE.Mesh(geoFiesta.vidrio, matVidrio));
+    grupo.add(new THREE.Mesh(geoFiesta.ruedas, matRueda));
+    caja(0.42, 0.12, 0.05, matLuz, -0.56, 0.62, -2.0);
+    caja(0.42, 0.12, 0.05, matLuz, 0.56, 0.62, -2.0);
+    caja(0.34, 0.16, 0.05, matFreno, -0.6, 0.84, 2.01);
+    caja(0.34, 0.16, 0.05, matFreno, 0.6, 0.84, 2.01);
     escena.add(grupo);
 
     var pos = { lng: BUENOS_AIRES[0], lat: BUENOS_AIRES[1], h: 0 }, visible = false;
@@ -1044,12 +1116,12 @@
       noche: { cuerpo: 0x7C8DA8, vidrio: 0x1E2A40, persona: 0xDCE4EF, linea: 0xFFFFFF, calle: 0x0C1626 },
       dia: { cuerpo: 0xA3AEC0, vidrio: 0x4E5D75, persona: 0x46536A, linea: 0x5B6B82, calle: 0xDDE4ED }
     };
-    var matObj = new THREE.MeshLambertMaterial({ color: COL_ENT.noche.cuerpo });
-    var matObjV = new THREE.MeshLambertMaterial({ color: COL_ENT.noche.vidrio });
+    var matObj = new THREE.MeshLambertMaterial({ color: COL_ENT.noche.cuerpo, side: THREE.DoubleSide });
+    var matObjV = new THREE.MeshLambertMaterial({ color: COL_ENT.noche.vidrio, side: THREE.DoubleSide });
     var matPers = new THREE.MeshLambertMaterial({ color: COL_ENT.noche.persona });
-    var matLider = new THREE.MeshLambertMaterial({ color: 0xFFB547 });
-    var matPeligro = new THREE.MeshLambertMaterial({ color: 0xFF4D5E });
-    var matAviso = new THREE.MeshLambertMaterial({ color: 0xFF9F43 });
+    var matLider = new THREE.MeshLambertMaterial({ color: 0xFFB547, side: THREE.DoubleSide });
+    var matPeligro = new THREE.MeshLambertMaterial({ color: 0xFF4D5E, side: THREE.DoubleSide });
+    var matAviso = new THREE.MeshLambertMaterial({ color: 0xFF9F43, side: THREE.DoubleSide });
     function geoPerfil(puntos, ancho) {
       var forma = new THREE.Shape(); forma.moveTo(puntos[0][0], puntos[0][1]);
       for (var i = 1; i < puntos.length; i++) forma.lineTo(puntos[i][0], puntos[i][1]);
@@ -1057,41 +1129,87 @@
       g.translate(0, 0, -ancho / 2); g.rotateY(Math.PI / 2); return g;
     }
     function geoCaja(w, h, l, y) { var g = new THREE.BoxGeometry(w, h, l); g.translate(0, y, 0); return g; }
-    var GEO = {
-      auto: geoPerfil([[-2.2, 0.2], [2.2, 0.2], [2.2, 0.62], [1.4, 0.82], [0.7, 1.32], [-1.2, 1.36], [-2.05, 0.92], [-2.2, 0.8]], 1.78),
-      autoV: geoPerfil([[0.72, 0.84], [0.62, 1.3], [-1.15, 1.33], [-1.95, 0.9]], 1.82),
-      colectivo: geoCaja(2.5, 2.7, 11.5, 1.65), colectivoV: geoCaja(2.54, 0.95, 10.6, 2.15),
-      moto: geoCaja(0.42, 0.75, 2.0, 0.6), piloto: geoCaja(0.5, 0.75, 0.55, 1.35), casco: new THREE.SphereGeometry(0.17, 10, 8),
-      cuerpo: new THREE.CylinderGeometry(0.2, 0.25, 1.1, 10), cabeza: new THREE.SphereGeometry(0.17, 10, 8),
-      // Animal de cuatro patas, tamaño de un perro mediano; los demás se agrandan o achican con ESCALA_ANIMAL
-      animal: geoCaja(0.32, 0.3, 0.8, 0.5), animalPatas: geoCaja(0.26, 0.36, 0.62, 0.18), animalCabeza: geoCaja(0.24, 0.24, 0.28, 0.7)
-    };
-    GEO.animalCabeza.translate(0, 0, -0.48);
+    // Junta varias geometrías en una sola (menos objetos para dibujar: el iPad viejo lo agradece)
+    function juntar(lista) {
+      var pos = [], nor = [];
+      lista.forEach(function (g) {
+        var n = g.index ? g.toNonIndexed() : g;
+        if (!n.attributes.normal) n.computeVertexNormals();
+        Array.prototype.push.apply(pos, n.attributes.position.array);
+        Array.prototype.push.apply(nor, n.attributes.normal.array);
+      });
+      var r = new THREE.BufferGeometry();
+      r.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+      r.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
+      return r;
+    }
+    function caja(w, h, l, x, y, z) { var g = new THREE.BoxGeometry(w, h, l); g.translate(x || 0, y || 0, z || 0); return g; }
+    // Modelos redondeados: tres de auto (el de cada uno sale de su número, así no cambia mientras lo vemos), utilitario y colectivo
+    var GEO = { sedan: geometriaAuto('sedan'), hatch: geometriaAuto('hatch'), suv: geometriaAuto('suv'),
+                camion: geometriaAuto('utilitario'), colectivo: geometriaAuto('colectivo') };
+    // Moto o bici con su conductor (piezas redondeadas)
+    function cilindro(r1, r2, h, x, y, z, rotX) { var c = new THREE.CylinderGeometry(r1, r2, h, 10); if (rotX) c.rotateX(rotX); c.translate(x, y, z); return c; }
+    function esfera(r, x, y, z) { var c = new THREE.SphereGeometry(r, 12, 9); c.translate(x, y, z); return c; }
+    GEO.moto = { cuerpo: juntarGeos(piezaRedonda([[-0.95, 0.22, 0.5, 0.62], [-0.75, 0.34, 0.42, 0.8], [0.1, 0.36, 0.45, 0.92], [0.7, 0.3, 0.5, 0.82], [0.95, 0.2, 0.58, 0.7]], 10, 3, 0.85)
+                   .concat([cilindro(0.15, 0.17, 0.62, 0, 1.22, 0.12, -0.25), cilindro(0.07, 0.07, 0.62, -0.13, 0.78, -0.12, 1.2), cilindro(0.07, 0.07, 0.62, 0.13, 0.78, -0.12, 1.2),
+                            cilindro(0.05, 0.05, 0.5, -0.22, 1.18, -0.2, 1.1), cilindro(0.05, 0.05, 0.5, 0.22, 1.18, -0.2, 1.1)])),
+                 vidrio: esfera(0.16, 0, 1.68, 0.05),
+                 ruedas: juntarGeos([cilindro(0.31, 0.31, 0.12, 0, 0.31, -0.68, 0), cilindro(0.31, 0.31, 0.12, 0, 0.31, 0.7, 0)].map(function (g) { g.rotateZ(Math.PI / 2); return g; })),
+                 luces: (function () { var c = new THREE.BoxGeometry(0.16, 0.07, 0.04); c.translate(0, 0.82, 0.97); return c; })(), atras: 0.97, yLuz: 0.82, largo: 2, anchoT: 0.8 };
+    GEO.moto.ruedas = juntarGeos([0, 1].map(function (i) { var c = new THREE.CylinderGeometry(0.31, 0.31, 0.12, 14); c.rotateZ(Math.PI / 2); c.translate(0, 0.31, i ? 0.7 : -0.68); return c; }));
+    // Persona: cuerpo torneado (piernas, cintura, torso y hombros), brazos y cabeza
+    GEO.persona = juntarGeos([
+      new THREE.LatheGeometry([[0.001, 0], [0.13, 0.02], [0.11, 0.45], [0.15, 0.85], [0.13, 0.95], [0.19, 1.25], [0.2, 1.38], [0.12, 1.44], [0.06, 1.46], [0.001, 1.47]].map(function (q) { return new THREE.Vector2(q[0], q[1]); }), 12),
+      cilindro(0.045, 0.04, 0.58, -0.23, 1.12, 0, 0.05), cilindro(0.045, 0.04, 0.58, 0.23, 1.12, 0, -0.05), esfera(0.115, 0, 1.6, 0)]);
+    GEO.persona.scale(1, 1, 0.65);   // más finita de adelante a atrás
+    // Animal de cuatro patas, tamaño de un perro mediano; los demás se agrandan o achican con ESCALA_ANIMAL
+    GEO.animal = juntar([caja(0.32, 0.3, 0.8, 0, 0.5), caja(0.26, 0.36, 0.62, 0, 0.18), caja(0.24, 0.24, 0.28, 0, 0.7, -0.48)]);
     // Obstáculos en la calle: cono, valla (caballete) y cartel sobre patas
-    GEO.cono = new THREE.ConeGeometry(0.22, 0.7, 12); GEO.cono.translate(0, 0.35, 0);
-    GEO.conoBase = geoCaja(0.42, 0.05, 0.42, 0.025);
-    GEO.vallaPanel = geoCaja(1.6, 0.32, 0.08, 0.85); GEO.vallaPatas = geoCaja(1.5, 0.85, 0.06, 0.42);
-    GEO.cartelPanel = geoCaja(1.3, 0.6, 0.08, 1.05); GEO.cartelPatas = geoCaja(1.1, 0.75, 0.06, 0.37);
+    GEO.cono = juntar([(function () { var c = new THREE.ConeGeometry(0.22, 0.7, 12); c.translate(0, 0.35, 0); return c; })(), caja(0.42, 0.05, 0.42, 0, 0.025)]);
+    GEO.vallaPanel = caja(1.6, 0.32, 0.08, 0, 0.85); GEO.vallaPatas = caja(1.5, 0.85, 0.06, 0, 0.42);
+    GEO.cartelPanel = caja(1.3, 0.6, 0.08, 0, 1.05); GEO.cartelPatas = caja(1.1, 0.75, 0.06, 0, 0.37);
     var matCono = new THREE.MeshLambertMaterial({ color: 0xFF8A3D });
+    var matRueda = new THREE.MeshLambertMaterial({ color: 0x0A0F18 });
+    var matFrenoOff = new THREE.MeshBasicMaterial({ color: 0x6A1A22 }), matFrenoOn = new THREE.MeshBasicMaterial({ color: 0xFF3344 });
+    var matBrilloFreno = new THREE.MeshBasicMaterial({ color: 0xFF2D3D, transparent: true, opacity: 0.35, depthWrite: false, blending: THREE.AdditiveBlending });
+    var geoBrillo = new THREE.PlaneGeometry(1, 1);
     var ESCALA_ANIMAL = { perro: 1, gato: 0.55, oveja: 1.4, vaca: 2.6, caballo: 2.8 };
-    GEO.casco.translate(0, 1.9, 0.05); GEO.cuerpo.translate(0, 0.6, 0); GEO.cabeza.translate(0, 1.36, 0);
-    function crearObjeto(tipo) {
-      var g = new THREE.Group(), cuerpo = [];
+    // Sombra suave debajo de cada cosa (una textura compartida)
+    var lienzoSombra = document.createElement('canvas'); lienzoSombra.width = lienzoSombra.height = 64;
+    (function () { var c = lienzoSombra.getContext('2d'), gr = c.createRadialGradient(32, 32, 4, 32, 32, 32);
+      gr.addColorStop(0, 'rgba(0,0,0,0.55)'); gr.addColorStop(1, 'rgba(0,0,0,0)'); c.fillStyle = gr; c.fillRect(0, 0, 64, 64); })();
+    var matSombra = new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(lienzoSombra), transparent: true, depthWrite: false });
+    var geoSombra = new THREE.PlaneGeometry(1, 1); geoSombra.rotateX(-Math.PI / 2); geoSombra.translate(0, 0.08, 0);
+    function numeroDe(id) { var n = 0; id = String(id); for (var i = 0; i < id.length; i++) n = (n * 31 + id.charCodeAt(i)) % 997; return n; }
+    function crearObjeto(tipo, id) {
+      var g = new THREE.Group(), cuerpo = [], luces = null, brillo = null;
       function m(geo, mat, esCuerpo) { var x = new THREE.Mesh(geo, mat); g.add(x); if (esCuerpo) cuerpo.push(x); return x; }
-      if (tipo === 'colectivo' || tipo === 'camion') { m(GEO.colectivo, matObj, true); m(GEO.colectivoV, matObjV); }
-      else if (tipo === 'moto' || tipo === 'bici') { m(GEO.moto, matObj, true); m(GEO.piloto, matObj, true); m(GEO.casco, matObjV); }
-      else if (tipo === 'persona') { m(GEO.cuerpo, matPers, true); m(GEO.cabeza, matPers, true); }
-      else if (tipo === 'cono') { m(GEO.cono, matCono, true); m(GEO.conoBase, matCono, true); }
-      else if (tipo === 'valla') { m(GEO.vallaPanel, matCono, true); m(GEO.vallaPatas, matObjV); }
-      else if (tipo === 'cartel') { m(GEO.cartelPanel, matObj, true); m(GEO.cartelPatas, matObjV); }
-      else if (ESCALA_ANIMAL[tipo]) {
-        m(GEO.animal, matPers, true); m(GEO.animalPatas, matPers, true); m(GEO.animalCabeza, matPers, true);
-        g.scale.setScalar(ESCALA_ANIMAL[tipo]);
+      function sombra(w, l) { var s = new THREE.Mesh(geoSombra, matSombra); s.scale.set(w, 1, l); s.renderOrder = -1; g.add(s); }
+      var veh = null;
+      if (tipo === 'colectivo') veh = GEO.colectivo;
+      else if (tipo === 'camion') veh = GEO.camion;
+      else if (tipo === 'moto' || tipo === 'bici') veh = GEO.moto;
+      else if (tipo === 'auto') veh = GEO[['sedan', 'hatch', 'suv'][numeroDe(id) % 3]];
+      if (veh) {
+        m(veh.cuerpo, matObj, true); m(veh.vidrio, matObjV); m(veh.ruedas, matRueda); luces = m(veh.luces, matFrenoOff);
+        brillo = new THREE.Mesh(geoBrillo, matBrilloFreno); brillo.scale.set(veh.anchoT, 0.5, 1); brillo.position.set(0, veh.yLuz, veh.atras + 0.12);
+        brillo.visible = false; g.add(brillo);
+        sombra(veh.anchoT + 0.4, veh.largo + 0.8);
       }
-      else { m(GEO.auto, matObj, true); m(GEO.autoV, matObjV); }
+      else if (tipo === 'persona') { m(GEO.persona, matPers, true); sombra(0.9, 0.9); }
+      else if (tipo === 'cono') { m(GEO.cono, matCono, true); sombra(0.7, 0.7); }
+      else if (tipo === 'valla') { m(GEO.vallaPanel, matCono, true); m(GEO.vallaPatas, matObjV); sombra(2, 0.8); }
+      else if (tipo === 'cartel') { m(GEO.cartelPanel, matObj, true); m(GEO.cartelPatas, matObjV); sombra(1.6, 0.8); }
+      else if (ESCALA_ANIMAL[tipo]) { m(GEO.animal, matPers, true); sombra(0.7, 1.2); g.scale.setScalar(ESCALA_ANIMAL[tipo]); }
+      else { veh = GEO.sedan; m(veh.cuerpo, matObj, true); m(veh.vidrio, matObjV); m(veh.ruedas, matRueda); sombra(2.2, 5); }
       var base = (tipo === 'persona' || ESCALA_ANIMAL[tipo]) ? matPers : (tipo === 'cono' || tipo === 'valla') ? matCono : matObj;
-      g.userData = { tipo: tipo, cuerpo: cuerpo, base: base };
+      g.userData = { tipo: tipo, cuerpo: cuerpo, base: base, luces: luces, brillo: brillo, frenando: false };
       mundo.add(g); return g;
+    }
+    function frenoObjeto(g, f) {
+      var u = g.userData;
+      if (!u.luces || u.frenando === f) return;
+      u.frenando = f; u.luces.material = f ? matFrenoOn : matFrenoOff; u.brillo.visible = f;
     }
     // Carriles: calle translúcida y líneas que se desvanecen a lo lejos (un solo objeto cada una, para el iPad viejo)
     function franjas(xs, largo, hueco, ancho, desde, hasta) {
@@ -1126,21 +1244,43 @@
     // Coordenadas locales en metros: x al este, z al sur (el norte es -z), con origen donde se armaron.
     var callesRaiz = new THREE.Group(), callesMundo = new THREE.Group();
     callesRaiz.add(callesMundo); escena.add(callesRaiz); callesRaiz.visible = false;
-    var COL_CALLES = { noche: { asfalto: 0x1C2A44, borde: 0x40527A, linea: 0xFFFFFF }, dia: { asfalto: 0xB4BFCD, borde: 0x8794A8, linea: 0xFFFFFF } };
+    var COL_CALLES = {
+      noche: { vereda: 0x222C3E, cordon: 0x51638A, asfalto: 0x101828, blanca: 0xFFFFFF, amarilla: 0xF2C14E },
+      dia: { vereda: 0xD5DCE6, cordon: 0x8794A8, asfalto: 0xA7B2C2, blanca: 0xFFFFFF, amarilla: 0xD99A1E }
+    };
     function matSuelo(color, opacidad, orden) {
       // DoubleSide: así no importa para qué lado quedaron armados los triángulos
       var m = new THREE.MeshBasicMaterial({ color: color, vertexColors: true, transparent: true, depthWrite: false, opacity: opacidad, side: THREE.DoubleSide });
       return { m: m, orden: orden };
     }
     var capas = {
-      borde: matSuelo(COL_CALLES.noche.borde, 0.9, -6), asfalto: matSuelo(COL_CALLES.noche.asfalto, 0.95, -5),
-      linea: matSuelo(COL_CALLES.noche.linea, 0.5, -4), ruta: matSuelo(0x3B9EFF, 0.45, -3)
+      vereda: matSuelo(COL_CALLES.noche.vereda, 0.9, -9), cordon: matSuelo(COL_CALLES.noche.cordon, 0.95, -8),
+      asfalto: matSuelo(COL_CALLES.noche.asfalto, 1, -7), blanca: matSuelo(COL_CALLES.noche.blanca, 0.55, -6),
+      amarilla: matSuelo(COL_CALLES.noche.amarilla, 0.85, -6), frenado: matSuelo(COL_CALLES.noche.blanca, 0.7, -6),
+      ruta: matSuelo(0x3B9EFF, 0.32, -5)
     };
-    var mallas = {}, tramosCerca = [], callesOrigen = null, conCalles = false;
-    var ajuste = { x: 0, z: 0 }, rumboVista = null;
+    var mallas = {}, tramosCerca = [], cruces = [], callesOrigen = null, conCalles = false;
+    var ajuste = { x: 0, z: 0 }, rumboVista = null, carril = { lat: null, suave: null, calle: null };
+    var camino = null, caminoT = 0;     // la calle hacia adelante desde tu auto, en muestras cada 4 m
     var RADIO_CALLES = 170;
     function alfaDist(x, z) { var d = Math.sqrt(x * x + z * z); return d < 90 ? 1 : Math.max(0, 1 - (d - 90) / (RADIO_CALLES - 90)); }
-    // Agrega una cinta (rectángulos por tramo + uniones) a pos/col
+    // Carriles de una calle: desplazamientos desde el centro, positivos a la derecha de tu sentido de marcha
+    // Cantidad de carriles por sentido: uno cada 3 m o más
+    function nCarriles(c) { return Math.max(1, Math.floor((c.unaMano ? c.ancho : c.ancho / 2) / 3)); }
+    function carrilesDe(c) {
+      var l = [], i, n = nCarriles(c);
+      if (c.unaMano) { var w = c.ancho / n; for (i = 0; i < n; i++) l.push(-c.ancho / 2 + w * (i + 0.5)); }
+      else { var w2 = c.ancho / 2 / n; for (i = 0; i < n; i++) l.push(w2 * (i + 0.5)); }
+      return l;
+    }
+    // Línea corrida d metros a la derecha (según el sentido en que está dibujada)
+    function desplazar(pts, d) {
+      return pts.map(function (q, i) {
+        var a = pts[Math.max(0, i - 1)], b = pts[Math.min(pts.length - 1, i + 1)], dx = b[0] - a[0], dz = b[1] - a[1], L = Math.sqrt(dx * dx + dz * dz) || 1;
+        return [q[0] - dz / L * d, q[1] + dx / L * d];
+      });
+    }
+    // Agrega una cinta (rectángulos por tramo + uniones donde dobla) a pos/col
     function cinta(pos, col, pts, medio, y) {
       for (var i = 0; i < pts.length - 1; i++) {
         var a = pts[i], b = pts[i + 1], dx = b[0] - a[0], dz = b[1] - a[1], L = Math.sqrt(dx * dx + dz * dz);
@@ -1151,13 +1291,11 @@
         pos.push(p0[0], y, p0[1], p1[0], y, p1[1], p2[0], y, p2[1], p0[0], y, p0[1], p2[0], y, p2[1], p3[0], y, p3[1]);
         col.push(1, 1, 1, al, 1, 1, 1, al, 1, 1, 1, bl, 1, 1, 1, al, 1, 1, 1, bl, 1, 1, 1, bl);
       }
-      // Uniones redondeadas (hexágonos) solo donde la calle dobla, para que no queden huecos en las esquinas
-      // (en los tramos rectos no hacen falta y, encimadas, se notarían en las capas transparentes)
+      // Uniones redondeadas solo donde la calle dobla (en los tramos rectos, encimadas, se notarían)
       for (var j = 1; j < pts.length - 1; j++) {
         var c = pts[j], ant = pts[j - 1], sig = pts[j + 1];
         var d1x = c[0] - ant[0], d1z = c[1] - ant[1], d2x = sig[0] - c[0], d2z = sig[1] - c[1];
-        var cruz = d1x * d2z - d1z * d2x, punto = d1x * d2x + d1z * d2z;
-        if (Math.abs(Math.atan2(cruz, punto)) < 0.06) continue;      // menos de ~3,5°: recto
+        if (Math.abs(Math.atan2(d1x * d2z - d1z * d2x, d1x * d2x + d1z * d2z)) < 0.06) continue;
         var aa = alfaDist(c[0], c[1]);
         for (var k = 0; k < 6; k++) {
           var t0 = k * Math.PI / 3, t1 = (k + 1) * Math.PI / 3;
@@ -1166,13 +1304,13 @@
         }
       }
     }
-    // Línea punteada del medio (3 m de línea, 6 de espacio), siguiendo la calle
-    function punteada(pos, col, pts, y) {
-      var fase = 0;
+    // Línea punteada (3 m de línea, 6 de espacio), siguiendo la calle
+    function punteada(pos, col, pts, y, ancho) {
+      var fase = 0, h = (ancho || 0.15) / 2;
       for (var i = 0; i < pts.length - 1; i++) {
         var a = pts[i], b = pts[i + 1], dx = b[0] - a[0], dz = b[1] - a[1], L = Math.sqrt(dx * dx + dz * dz);
         if (L < 0.01) continue;
-        var ux = dx / L, uz = dz / L, nx = -uz * 0.08, nz = ux * 0.08, t = -fase;
+        var ux = dx / L, uz = dz / L, nx = -uz * h, nz = ux * h, t = -fase;
         while (t < L) {
           var t0 = Math.max(0, t), t1 = Math.min(L, t + 3);
           if (t1 > t0) {
@@ -1185,6 +1323,10 @@
         fase = (fase + L) % 9;
       }
     }
+    function quad(pos, col, a, b, c, d, y, al) {
+      pos.push(a[0], y, a[1], b[0], y, b[1], c[0], y, c[1], a[0], y, a[1], c[0], y, c[1], d[0], y, d[1]);
+      for (var i = 0; i < 6; i++) col.push(1, 1, 1, al);
+    }
     function malla(nombre, pos, col) {
       if (mallas[nombre]) { callesMundo.remove(mallas[nombre]); mallas[nombre].geometry.dispose(); mallas[nombre] = null; }
       if (!pos.length) return;
@@ -1194,28 +1336,119 @@
       var me = new THREE.Mesh(g, capas[nombre].m); me.renderOrder = capas[nombre].orden; me.frustumCulled = false;
       callesMundo.add(me); mallas[nombre] = me;
     }
-    // datos: { calles: [{ pts: [[x,z]], ancho, unaMano }], ruta: [[[x,z]]] (tramos) o null }  (ya en metros locales)
-    function armarCalles(datos, origen) {
-      if (!datos || !datos.calles.length) { conCalles = false; callesRaiz.visible = false; calle.visible = bordes.visible = discontinuas.visible = true; pedirCuadro(); return; }
-      var pb = [], cb = [], pa = [], ca = [], pl = [], cl = [], pr = [], cr = [];
-      tramosCerca = [];
-      datos.calles.forEach(function (c) {
-        cinta(pb, cb, c.pts, c.ancho / 2 + 0.25, 0.03);
-        cinta(pa, ca, c.pts, c.ancho / 2, 0.04);
-        if (!c.unaMano && c.ancho >= 6) punteada(pl, cl, c.pts, 0.06);
-        for (var i = 0; i < c.pts.length - 1; i++) {
-          var a = c.pts[i], b = c.pts[i + 1];
-          if (Math.min(a[0] * a[0] + a[1] * a[1], b[0] * b[0] + b[1] * b[1]) < 120 * 120) tramosCerca.push({ a: a, b: b, ancho: c.ancho, unaMano: c.unaMano });
+    function claveNodo(q) { return Math.round(q[0] * 2) / 2 + ',' + Math.round(q[1] * 2) / 2; }
+    // Esquinas: puntos donde se tocan calles que van para distintos lados
+    function buscarCruces(calles) {
+      var nodos = {};
+      calles.forEach(function (c, ci) {
+        if (c.ancho < 6) return;   // los pasajes y entradas no hacen esquina
+        for (var i = 0; i < c.pts.length; i++) {
+          var k = claveNodo(c.pts[i]), a = c.pts[Math.max(0, i - 1)], b = c.pts[Math.min(c.pts.length - 1, i + 1)];
+          var dx = b[0] - a[0], dz = b[1] - a[1], L = Math.sqrt(dx * dx + dz * dz);
+          if (L < 0.01) continue;
+          (nodos[k] = nodos[k] || []).push({ ci: ci, i: i, ux: dx / L, uz: dz / L, ancho: c.ancho, p: c.pts[i] });
         }
       });
-      (datos.ruta || []).forEach(function (t) { cinta(pr, cr, t, 1.4, 0.07); });   // apenas arriba del suelo (y como la calle recta), si no lo tapa el piso
-      malla('borde', pb, cb); malla('asfalto', pa, ca); malla('linea', pl, cl); malla('ruta', pr, cr);
-      callesOrigen = origen; conCalles = true; callesRaiz.visible = true;
+      var lista = [];
+      Object.keys(nodos).forEach(function (k) {
+        var n = nodos[k], esCruce = false, anchoMax = 0;
+        for (var a = 0; a < n.length; a++) {
+          anchoMax = Math.max(anchoMax, n[a].ancho);
+          for (var b = a + 1; b < n.length; b++) if (n[a].ci !== n[b].ci && Math.abs(n[a].ux * n[b].ux + n[a].uz * n[b].uz) < 0.85) esCruce = true;
+        }
+        if (esCruce) lista.push({ p: n[0].p, llegan: n, anchoMax: anchoMax });
+      });
+      return lista;
+    }
+    // datos: { calles: [{ pts: [[x,z]], ancho, unaMano, sentido }], ruta: [[[x,z]]] (tramos) o null }  (ya en metros locales)
+    function armarCalles(datos, origen) {
+      if (!datos || !datos.calles.length) {
+        conCalles = false; callesRaiz.visible = false; camino = null;
+        calle.visible = bordes.visible = discontinuas.visible = true; pedirCuadro(); return;
+      }
+      var L = { vereda: [[], []], cordon: [[], []], asfalto: [[], []], blanca: [[], []], amarilla: [[], []], frenado: [[], []], ruta: [[], []] };
+      tramosCerca = [];
+      datos.calles.forEach(function (c) {
+        var ancho = c.ancho;
+        if (ancho >= 6) cinta(L.vereda[0], L.vereda[1], c.pts, ancho / 2 + 2.4, 0.02);      // vereda (las calles chicas no)
+        cinta(L.cordon[0], L.cordon[1], c.pts, ancho / 2 + 0.18, 0.03);
+        cinta(L.asfalto[0], L.asfalto[1], c.pts, ancho / 2, 0.04);
+        if (ancho >= 6) {
+          var i;
+          if (!c.unaMano) {
+            // Doble mano: amarilla en el medio (doble y continua en las avenidas), y blancas entre carriles
+            if (ancho >= 10) { cinta(L.amarilla[0], L.amarilla[1], desplazar(c.pts, 0.13), 0.06, 0.06); cinta(L.amarilla[0], L.amarilla[1], desplazar(c.pts, -0.13), 0.06, 0.06); }
+            else punteada(L.amarilla[0], L.amarilla[1], c.pts, 0.06, 0.13);
+            var m = nCarriles(c), w = ancho / 2 / m;
+            for (i = 1; i < m; i++) { punteada(L.blanca[0], L.blanca[1], desplazar(c.pts, w * i), 0.06); punteada(L.blanca[0], L.blanca[1], desplazar(c.pts, -w * i), 0.06); }
+          } else {
+            var n = nCarriles(c), w1 = ancho / n;
+            for (i = 1; i < n; i++) punteada(L.blanca[0], L.blanca[1], desplazar(c.pts, -ancho / 2 + w1 * i), 0.06);
+          }
+        }
+        for (var j = 0; j < c.pts.length - 1; j++) {
+          var a = c.pts[j], b = c.pts[j + 1];
+          if (Math.min(a[0] * a[0] + a[1] * a[1], b[0] * b[0] + b[1] * b[1]) < 150 * 150) tramosCerca.push({ a: a, b: b, c: c });
+        }
+      });
+      // Líneas de frenado antes de cada esquina, del lado por donde se llega
+      cruces = buscarCruces(datos.calles);
+      cruces.forEach(function (cr) {
+        cr.llegan.forEach(function (ll) {
+          var c = datos.calles[ll.ci];
+          [-1, 1].forEach(function (dir) {          // dir 1: llegando en el sentido en que está dibujada la calle
+            if (c.unaMano && c.sentido && dir !== c.sentido) return;
+            var j = ll.i - dir;
+            if (j < 0 || j >= c.pts.length) return;
+            var q = c.pts[j], dx = cr.p[0] - q[0], dz = cr.p[1] - q[1], Lq = Math.sqrt(dx * dx + dz * dz);
+            var atras = Math.max(cr.anchoMax / 2, 3.5) + 2;
+            if (Lq < atras + 2) return;
+            var ux = dx / Lq, uz = dz / Lq, rx = -uz, rz = ux;
+            var cx = cr.p[0] - ux * atras, cz = cr.p[1] - uz * atras, desde = c.unaMano ? -c.ancho / 2 : 0, hasta = c.ancho / 2;
+            var p0 = [cx + rx * desde, cz + rz * desde], p1 = [cx + rx * hasta, cz + rz * hasta];
+            quad(L.frenado[0], L.frenado[1], p0, p1, [p1[0] + ux * 0.45, p1[1] + uz * 0.45], [p0[0] + ux * 0.45, p0[1] + uz * 0.45], 0.065, alfaDist(cx, cz));
+          });
+        });
+      });
+      (datos.ruta || []).forEach(function (t) { cinta(L.ruta[0], L.ruta[1], t, 1.5, 0.07); });   // apenas arriba del suelo, si no lo tapa el piso
+      Object.keys(L).forEach(function (k) { malla(k, L[k][0], L[k][1]); });
+      callesOrigen = origen; conCalles = true; callesRaiz.visible = true; caminoT = 0;
       calle.visible = bordes.visible = discontinuas.visible = false;   // la calle recta inventada ya no hace falta
       pedirCuadro();
     }
+    // Recorre la calle hacia adelante (cada 4 m), siguiendo la que va para el mismo lado en curvas y esquinas
+    function recorrer(p0, u0, largo) {
+      var muestras = [{ s: 0, p: p0, u: u0 }], p = p0, u = u0;
+      for (var s = 4; s <= largo; s += 4) {
+        var q = [p[0] + u[0] * 4, p[1] + u[1] * 4], mejor = null;
+        for (var i = 0; i < tramosCerca.length; i++) {
+          var t = tramosCerca[i], dx = t.b[0] - t.a[0], dz = t.b[1] - t.a[1], L2 = dx * dx + dz * dz;
+          if (L2 < 0.0001) continue;
+          var Lt = Math.sqrt(L2), ux = dx / Lt, uz = dz / Lt, cosA = ux * u[0] + uz * u[1];
+          if (Math.abs(cosA) < 0.75) continue;
+          var k = Math.max(0, Math.min(1, ((q[0] - t.a[0]) * dx + (q[1] - t.a[1]) * dz) / L2));
+          var px = t.a[0] + dx * k, pz = t.a[1] + dz * k, d = Math.sqrt((q[0] - px) * (q[0] - px) + (q[1] - pz) * (q[1] - pz));
+          if (d < 5 && (!mejor || d < mejor.d)) mejor = { d: d, p: [px, pz], u: cosA < 0 ? [-ux, -uz] : [ux, uz] };
+        }
+        if (mejor) { p = mejor.p; u = [u[0] * 0.5 + mejor.u[0] * 0.5, u[1] * 0.5 + mejor.u[1] * 0.5]; var lu = Math.sqrt(u[0] * u[0] + u[1] * u[1]) || 1; u = [u[0] / lu, u[1] / lu]; }
+        else p = q;
+        muestras.push({ s: s, p: p, u: u });
+      }
+      return muestras;
+    }
+    // Punto de la calle a s metros hacia adelante (interpolando las muestras)
+    function enCamino(s) {
+      var m = camino.muestras, i = Math.min(m.length - 2, Math.max(0, Math.floor(s / 4)));
+      var a = m[i], b = m[i + 1], k = Math.max(0, Math.min(1.5, (s - a.s) / 4));
+      return { p: [a.p[0] + (b.p[0] - a.p[0]) * k, a.p[1] + (b.p[1] - a.p[1]) * k], u: b.u };
+    }
+    // De coordenadas locales de la calle a las de tu auto (x a la derecha, z hacia atrás)
+    function aAuto(q) {
+      var r = rumboVista * Math.PI / 180, dx = q[0] - camino.auto[0], dz = q[1] - camino.auto[1];
+      return [Math.cos(r) * dx + Math.sin(r) * dz, -Math.sin(r) * dx + Math.cos(r) * dz];
+    }
     // Cada cuadro: ubica las calles según dónde estás y para dónde vas.
-    // Te "pega" a la calle más cercana (del lado derecho si es doble mano) para que el GPS no te deje en la vereda.
+    // Te "pega" a un carril de la calle más cercana para que el GPS no te deje en la vereda.
     function ubicarCalles(p) {
       if (!conCalles || !callesOrigen || !p) return;
       var m = callesOrigen.m;
@@ -1230,13 +1463,19 @@
         var L = Math.sqrt(L2), ux = dx / L, uz = dz / L, cosA = ux * fx + uz * fz;
         if (Math.abs(cosA) < 0.64) continue;            // la calle va para otro lado (más de 50°)
         var costo = d + (1 - Math.abs(cosA)) * 20;
-        if (d < 16 && (!mejor || costo < mejor.costo)) mejor = { costo: costo, px: px, pz: pz, ux: cosA < 0 ? -ux : ux, uz: cosA < 0 ? -uz : uz, t: t };
+        if (d < 16 && (!mejor || costo < mejor.costo)) mejor = { costo: costo, px: px, pz: pz, ux: cosA < 0 ? -ux : ux, uz: cosA < 0 ? -uz : uz, c: t.c };
       }
       var objX = 0, objZ = 0, rumboObj = h;
       if (mejor) {
-        var lado = mejor.t.unaMano ? 0 : mejor.t.ancho / 4;           // carril derecho
         var rx = -mejor.uz, rz = mejor.ux;                              // a la derecha del sentido de marcha
-        objX = mejor.px + rx * lado - cx; objZ = mejor.pz + rz * lado - cz;
+        // Carril: el más cercano a lo que dice el GPS (promediado unos segundos), y solo cambia si otro queda claramente más cerca
+        var lats = carrilesDe(mejor.c), latGps = (cx - mejor.px) * rx + (cz - mejor.pz) * rz;
+        if (carril.calle !== mejor.c) { carril.calle = mejor.c; carril.suave = latGps; carril.lat = null; }
+        carril.suave += (latGps - carril.suave) * 0.02;
+        var cerca = lats[lats.length - 1];
+        lats.forEach(function (l) { if (Math.abs(l - carril.suave) < Math.abs(cerca - carril.suave)) cerca = l; });
+        if (carril.lat === null || lats.indexOf(carril.lat) < 0 || Math.abs(carril.lat - carril.suave) - Math.abs(cerca - carril.suave) > 0.8) carril.lat = cerca;
+        objX = mejor.px + rx * carril.lat - cx; objZ = mejor.pz + rz * carril.lat - cz;
         var rumboCalle = (Math.atan2(mejor.ux, -mejor.uz) * 180 / Math.PI + 360) % 360;
         rumboObj = interpAngulo(h, rumboCalle, 0.7);                     // alineamos con la calle, sin ignorar el GPS
       }
@@ -1244,6 +1483,14 @@
       rumboVista = rumboVista === null ? rumboObj : interpAngulo(rumboVista, rumboObj, 0.15);
       callesRaiz.rotation.y = rumboVista * Math.PI / 180;
       callesMundo.position.set(-(cx + ajuste.x), 0, -(cz + ajuste.z));
+      // La calle hacia adelante (para acomodar autos, la franja azul y el semáforo), unas 8 veces por segundo
+      var tAhora = Date.now();
+      if (mejor && tAhora - caminoT > 120) {
+        caminoT = tAhora;
+        var auto = [cx + ajuste.x, cz + ajuste.z], centro = [auto[0] - (-mejor.uz) * carril.lat, auto[1] - mejor.ux * carril.lat];
+        camino = { muestras: recorrer(centro, [mejor.ux, mejor.uz], 100), auto: auto, lat: carril.lat, c: mejor.c };
+      } else if (!mejor) camino = null;
+      if (camino) camino.auto = [cx + ajuste.x, cz + ajuste.z];
       pedirCuadro();
     }
     function temaEntorno(t) {
@@ -1254,8 +1501,90 @@
       // De noche la franja brilla; de día, sobre fondo claro, va como color suave
       matFranja.blending = t === 'dia' ? THREE.NormalBlending : THREE.AdditiveBlending; matFranja.needsUpdate = true;
       var cc = COL_CALLES[t === 'dia' ? 'dia' : 'noche'];
-      capas.borde.m.color.setHex(cc.borde); capas.asfalto.m.color.setHex(cc.asfalto); capas.linea.m.color.setHex(cc.linea);
-      capas.linea.m.opacity = t === 'dia' ? 0.85 : 0.5;
+      capas.vereda.m.color.setHex(cc.vereda); capas.cordon.m.color.setHex(cc.cordon); capas.asfalto.m.color.setHex(cc.asfalto);
+      capas.blanca.m.color.setHex(cc.blanca); capas.amarilla.m.color.setHex(cc.amarilla); capas.frenado.m.color.setHex(cc.blanca);
+      capas.blanca.m.opacity = t === 'dia' ? 0.9 : 0.55; capas.frenado.m.opacity = t === 'dia' ? 0.95 : 0.7;
+      matAlfombra.blending = t === 'dia' ? THREE.NormalBlending : THREE.AdditiveBlending; matAlfombra.needsUpdate = true;
+    }
+
+    // ---- Franja azul con flechas delante de tu auto (por tu carril, siguiendo la calle) ----
+    var lienzoFlecha = document.createElement('canvas'); lienzoFlecha.width = 64; lienzoFlecha.height = 64;
+    (function () {
+      var c = lienzoFlecha.getContext('2d');
+      c.fillStyle = 'rgba(255,255,255,0.32)'; c.fillRect(0, 0, 64, 64);
+      c.strokeStyle = 'rgba(255,255,255,0.95)'; c.lineWidth = 9; c.lineJoin = 'round'; c.lineCap = 'round';
+      c.beginPath(); c.moveTo(14, 42); c.lineTo(32, 24); c.lineTo(50, 42); c.stroke();   // "V" invertida: apunta hacia adelante
+    })();
+    var texFlecha = new THREE.CanvasTexture(lienzoFlecha);
+    texFlecha.wrapS = THREE.ClampToEdgeWrapping; texFlecha.wrapT = THREE.RepeatWrapping;
+    var matAlfombra = new THREE.MeshBasicMaterial({ map: texFlecha, color: 0x3B9EFF, transparent: true, opacity: 0.85, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending });
+    var alfombra = new THREE.Mesh(new THREE.BufferGeometry(), matAlfombra); alfombra.renderOrder = -2; alfombra.frustumCulled = false; mundo.add(alfombra);
+    function armarAlfombra(desde, hasta) {
+      var pos = [], uv = [], prev = null, ANCHO = 1.15, pasos = [];
+      for (var s0 = desde; s0 < hasta; s0 += 2) pasos.push(s0);
+      pasos.push(hasta);
+      pasos.forEach(function (s) {
+        var c, u;
+        if (camino) {
+          var e = enCamino(s), rx = -e.u[1], rz = e.u[0];
+          c = aAuto([e.p[0] + rx * camino.lat, e.p[1] + rz * camino.lat]);
+          var r = rumboVista * Math.PI / 180; u = [Math.cos(r) * e.u[0] + Math.sin(r) * e.u[1], -Math.sin(r) * e.u[0] + Math.cos(r) * e.u[1]];
+        } else { c = [0, -s]; u = [0, -1]; }
+        var nx = -u[1] * ANCHO, nz = u[0] * ANCHO, izq = [c[0] - nx, c[1] - nz], der = [c[0] + nx, c[1] + nz], v = s / 3.2;
+        if (prev) {
+          pos.push(prev.i[0], 0.09, prev.i[1], prev.d[0], 0.09, prev.d[1], der[0], 0.09, der[1], prev.i[0], 0.09, prev.i[1], der[0], 0.09, der[1], izq[0], 0.09, izq[1]);
+          uv.push(0, prev.v, 1, prev.v, 1, v, 0, prev.v, 1, v, 0, v);
+        }
+        prev = { i: izq, d: der, v: v };
+      });
+      var g = new THREE.BufferGeometry();
+      g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+      g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+      alfombra.geometry.dispose(); alfombra.geometry = g;
+    }
+
+    // ---- Semáforo en la esquina de adelante (cuando la cámara ve uno) ----
+    var semaforo3d = new THREE.Group(), matPoste = new THREE.MeshLambertMaterial({ color: 0x3A4459 }), matApagada = new THREE.MeshBasicMaterial({ color: 0x1A2130 });
+    var COLOR_LUZ = { rojo: 0xFF3B3B, amarillo: 0xFFC233, verde: 0x2EE57A };
+    (function () {
+      var poste = new THREE.CylinderGeometry(0.08, 0.08, 3.3, 8); poste.translate(0, 1.65, 0);
+      semaforo3d.add(new THREE.Mesh(juntar([poste, caja(0.42, 1.15, 0.32, 0, 3.75, 0)]), matPoste));
+    })();
+    var lienzoBrillo = document.createElement('canvas'); lienzoBrillo.width = lienzoBrillo.height = 64;
+    (function () { var c = lienzoBrillo.getContext('2d'), gr = c.createRadialGradient(32, 32, 2, 32, 32, 32);
+      gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); c.fillStyle = gr; c.fillRect(0, 0, 64, 64); })();
+    var lamparas = {}, brilloSem = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 1.4), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(lienzoBrillo), color: 0xFF3B3B, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
+    ['rojo', 'amarillo', 'verde'].forEach(function (c, i) {
+      var l = new THREE.Mesh(new THREE.SphereGeometry(0.13, 10, 8), matApagada); l.position.set(0, 4.1 - i * 0.35, 0.17); semaforo3d.add(l); lamparas[c] = l;
+    });
+    brilloSem.visible = false; semaforo3d.add(brilloSem); semaforo3d.visible = false; mundo.add(semaforo3d);
+    var matesLuz = {};
+    function mostrarSemaforo(color) {
+      if (!COLOR_LUZ[color]) { semaforo3d.visible = false; return; }
+      // En la próxima esquina de la calle por la que vas; si no hay calles, a unos 30 m adelante a la derecha
+      var x = 5.5, z = -30;
+      if (camino && cruces.length) {
+        var mejor = null;
+        cruces.forEach(function (cr) {
+          var q = aAuto(cr.p);
+          if (q[1] < -6 && q[1] > -80 && Math.abs(q[0]) < 12 && (!mejor || q[1] > mejor.q[1])) mejor = { q: q, cr: cr };
+        });
+        if (mejor) { x = mejor.q[0] + camino.c.ancho / 2 + 1.2; z = mejor.q[1] + Math.max(mejor.cr.anchoMax / 2, 3.5) + 1; }
+      }
+      semaforo3d.position.set(x, 0, z); semaforo3d.visible = true;
+      Object.keys(lamparas).forEach(function (c) {
+        if (!matesLuz[c]) matesLuz[c] = new THREE.MeshBasicMaterial({ color: COLOR_LUZ[c] });
+        lamparas[c].material = c === color ? matesLuz[c] : matApagada;
+      });
+      brilloSem.material.color.setHex(COLOR_LUZ[color]); brilloSem.position.copy(lamparas[color].position); brilloSem.position.z += 0.05; brilloSem.visible = true;
+    }
+
+    // Carril más cercano (de los dos sentidos) para dejar prolijos a los autos que ve la cámara
+    var TIPOS_VEHICULO = { auto: 1, camion: 1, colectivo: 1, moto: 1 };
+    function alCarril(lat) {
+      var c = camino.c, mios = carrilesDe(c), todos = c.unaMano ? mios : mios.concat(mios.map(function (l) { return -l; })), mejor = lat;
+      todos.forEach(function (l) { if (Math.abs(l - lat) < Math.abs(mejor - lat) || mejor === lat) mejor = l; });
+      return Math.abs(mejor - lat) < 1.4 ? mejor : lat;
     }
     function actualizarEntorno(d) {
       if (!d) d = { objetos: [], avance: avanceSinDatos };
@@ -1263,18 +1592,34 @@
       var vistos = {};
       (d.objetos || []).forEach(function (o) {
         var g = objetos[o.id];
-        if (!g || g.userData.tipo !== o.tipo) { if (g) mundo.remove(g); g = objetos[o.id] = crearObjeto(o.tipo); }
-        g.position.set(o.x, 0, -o.y);
-        g.rotation.y = o.giro ? -o.giro * Math.PI / 180 : 0;
-        var mat = o.estado === 'peligro' ? matPeligro : o.estado === 'aviso' ? matAviso : o.estado === 'lider' ? matLider : g.userData.base;
+        if (!g || g.userData.tipo !== o.tipo) { if (g) mundo.remove(g); g = objetos[o.id] = crearObjeto(o.tipo, o.id); }
+        frenoObjeto(g, !!o.freno);
+        if (conCalles && camino && o.y > 2 && o.y < 98) {
+          // Lo ubicamos siguiendo la calle (en una curva queda sobre la calle, no en línea recta) y, si es un vehículo, en su carril
+          var lat = camino.lat + o.x;
+          if (TIPOS_VEHICULO[o.tipo]) lat = alCarril(lat);
+          var e = enCamino(o.y), q = aAuto([e.p[0] - e.u[1] * lat, e.p[1] + e.u[0] * lat]);
+          var r = rumboVista * Math.PI / 180, tx = Math.cos(r) * e.u[0] + Math.sin(r) * e.u[1], tz = -Math.sin(r) * e.u[0] + Math.cos(r) * e.u[1];
+          g.position.set(q[0], 0, q[1]);
+          g.rotation.y = Math.atan2(-tx, -tz) + (o.vAbs !== undefined && o.vAbs < -1.5 ? Math.PI : 0);   // los que vienen de frente, al revés
+        } else {
+          g.position.set(o.x, 0, -o.y);
+          g.rotation.y = o.giro ? -o.giro * Math.PI / 180 : (o.vAbs !== undefined && o.vAbs < -1.5 ? Math.PI : 0);
+        }
+        var mat = o.estado === 'peligro' ? matPeligro : o.estado === 'aviso' ? matAviso : g.userData.base;   // el de adelante lo marca la franja
         for (var i = 0; i < g.userData.cuerpo.length; i++) g.userData.cuerpo[i].material = mat;
         vistos[o.id] = true;
       });
       for (var id in objetos) if (!vistos[id]) { mundo.remove(objetos[id]); delete objetos[id]; }
-      if (d.lider && d.lider.y > 3) {
-        franja.visible = true; franja.position.z = -2.3; franja.scale.z = Math.max(0.1, d.lider.y - 4.6);
-        matFranja.color.setHex(d.peligro ? 0xFF4D5E : colorAmb); matFranja.opacity = d.peligro ? 0.55 : 0.35;
-      } else franja.visible = false;
+      // Franja con flechas: hasta el de adelante (roja si hay peligro), o unos 22 m si la calle está libre
+      franja.visible = false;
+      var hasta = d.lider ? Math.min(40, d.lider.y - 2.6) : 22;
+      if (hasta > 3) {
+        armarAlfombra(2.4, hasta); alfombra.visible = true;
+        matAlfombra.color.setHex(d.peligro ? 0xFF4D5E : colorAmb);
+        texFlecha.offset.y = -(((d.avance || 0) / 6) % 1);
+      } else alfombra.visible = false;
+      mostrarSemaforo(d.semaforo);
       pedirCuadro();
     }
 
@@ -1284,8 +1629,9 @@
       var w = lienzo.clientWidth, h = lienzo.clientHeight;
       if (!w || !h) return;
       render.setSize(w, h, false); camara.aspect = w / h;
-      if (camara.aspect > 1) { camara.fov = 38; camara.position.set(0, 9.5, 19); camara.lookAt(0, 0, -12); }    // pantalla completa
-      else { camara.fov = 48; camara.position.set(0, 12, 17); camara.lookAt(0, 0, -6); }                        // panel angosto
+      // Cámara baja y cerca, detrás de tu auto (como en Tesla)
+      if (camara.aspect > 1) { camara.fov = 40; camara.position.set(0, 6.6, 12.5); camara.lookAt(0, 0, -16); }   // pantalla completa
+      else { camara.fov = 50; camara.position.set(0, 8.2, 11.5); camara.lookAt(0, 0, -9); }                        // panel angosto
       camara.updateProjectionMatrix(); pedirCuadro();
     }
     return {
@@ -2183,7 +2529,10 @@
       var estado = '';
       if (o === lider) estado = peligro ? 'peligro' : 'lider';
       else if (o.tipo === 'moto' && o.y > -14 && o.y < 3) estado = 'aviso';
-      if (o.y > -45 && o.y < 110) datos.objetos.push({ id: o.id, tipo: o.tipo, x: o.x, y: o.y, estado: estado });
+      // Luces de freno: si desacelera, o si está detenido en la calle (los estacionados al costado, no)
+      var acel = o.vAnt !== undefined && dt > 0 ? (o.v - o.vAnt) / dt : 0; o.vAnt = o.v;
+      var freno = acel < -1 || (o.v < 0.5 && Math.abs(o.x) < 4.5);
+      if (o.y > -45 && o.y < 110) datos.objetos.push({ id: o.id, tipo: o.tipo, x: o.x, y: o.y, estado: estado, freno: freno, vAbs: o.v });
     });
     if (panelEnt) panelEnt.actualizar(datos);
     mostrarEntorno(hueco, vYo, peligro, sim.t);
@@ -2228,6 +2577,20 @@
       }
     }, function () { pidiendoEntorno = false; });
   }
+  // Luces de freno de los autos que ve la cámara: su velocidad real es la tuya más la relativa.
+  // Frena si desacelera (más de 1,2 m/s²) o si está detenido cerca de tu carril (los estacionados al costado, no).
+  var VEHICULOS_FRENO = { auto: 1, camion: 1, colectivo: 1, moto: 1 }, velAnterior = {};
+  function frenaVehiculo(ob, vYo) {
+    if (!VEHICULOS_FRENO[ob.tipo]) return false;
+    var t = ahora(), v = vYo + (ob.vy || 0), a = velAnterior[ob.id], acel = 0;
+    if (a && t - a.t > 50) { acel = a.acel * 0.6 + ((v - a.v) / ((t - a.t) / 1000)) * 0.4; }
+    else if (a) acel = a.acel;
+    velAnterior[ob.id] = { v: v, t: t, acel: acel };
+    if (Object.keys(velAnterior).length > 200) {   // limpiamos los que ya no se ven
+      for (var k in velAnterior) if (t - velAnterior[k].t > 5000) delete velAnterior[k];
+    }
+    return acel < -1.2 || (v < 1 && Math.abs(ob.x) < 4.5);
+  }
   // Personas y animales chicos no cuentan como "el de adelante", pero avisan si están cerca de tu carril.
   // Caballos y vacas sí: si están en tu carril son un obstáculo como un auto.
   var PEATONES = { persona: 1, perro: 1, gato: 1, oveja: 1 };
@@ -2258,7 +2621,8 @@
   setInterval(mostrarGrabar, 500);
 
   // ---- Calles reales para el panel 3D: salen del mismo mapa (OpenFreeMap) que ya está cargado ----
-  var ANCHO_CALLE = { motorway: 14, trunk: 12, primary: 11, secondary: 10, tertiary: 9, minor: 7.5, service: 4.5, busway: 7 };
+  // Anchos típicos en Buenos Aires (el mapa no trae el ancho ni los carriles; se estiman por el tipo de calle)
+  var ANCHO_CALLE = { motorway: 22, trunk: 18, primary: 16, secondary: 13, tertiary: 10, minor: 8.5, service: 4.5, busway: 7 };
   var callesEstado = null;
   function obtenerCallesMapa() {
     if (window.CALLES_PRUEBA) return window.CALLES_PRUEBA;          // solo para probar sin internet
@@ -2326,7 +2690,7 @@
       if (pr.ramp === 1) ancho *= 0.6;
       var lineas = g.type === 'LineString' ? [g.coordinates] : g.type === 'MultiLineString' ? g.coordinates : [];
       lineas.forEach(function (l) {
-        partir(l.map(local), R).forEach(function (t) { calles.push({ pts: t, ancho: ancho, unaMano: pr.oneway === 1 || pr.oneway === -1 }); });
+        partir(l.map(local), R).forEach(function (t) { calles.push({ pts: t, ancho: ancho, unaMano: pr.oneway === 1 || pr.oneway === -1, sentido: pr.oneway === -1 ? -1 : pr.oneway === 1 ? 1 : 0 }); });
       });
     });
     var linea = null;
@@ -2372,9 +2736,9 @@
       var ob = objs[j], estado = '';
       if (ob === lider) estado = peligro ? 'peligro' : 'lider';
       else if (PEATONES[ob.tipo] && Math.abs(ob.x) < 2.5 && ob.d < 15) estado = 'aviso';
-      lista.push({ id: ob.id, tipo: ob.tipo, x: ob.x, y: ob.y, estado: estado });
+      lista.push({ id: ob.id, tipo: ob.tipo, x: ob.x, y: ob.y, estado: estado, freno: frenaVehiculo(ob, vYo), vAbs: vYo + (ob.vy || 0) });
     }
-    if (panelEnt) panelEnt.actualizar({ avance: avanceSinDatos, lider: lider, peligro: peligro, objetos: lista });
+    if (panelEnt) panelEnt.actualizar({ avance: avanceSinDatos, lider: lider, peligro: peligro, objetos: lista, semaforo: datos.semaforo });
     mostrarEntorno(hueco, vYo, peligro, 0, datos.semaforo);
   }
   function iniciarSimEntorno() {
