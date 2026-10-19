@@ -347,6 +347,12 @@
   .ri-man-txt { flex: 1 1 auto; min-width: 0; font-size: 15px; color: var(--suave); line-height: 1.25; }
   .ri-man-txt b { display: block; font-size: 20px; font-weight: 600; color: var(--texto); }
   .ri-man-txt span { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  /* Guía de carriles: una flechita por carril (de izquierda a derecha); las que sirven para tu giro, resaltadas */
+  .ri-carriles { width: 100%; display: -webkit-box; display: flex; justify-content: center; margin-top: 8px; padding: 6px 4px; border-radius: 12px; background: var(--panel2); }
+  .ri-carriles .carril { width: 34px; height: 38px; display: flex; align-items: center; justify-content: center; border-left: 1px dashed var(--borde); opacity: 0.32; }
+  .ri-carriles .carril:first-child { border-left: 0; }
+  .ri-carriles .carril.ok { opacity: 1; }
+  .ri-carriles .carril.ok svg path { stroke: var(--ruta); }
   .ri-progreso { width: 100%; height: 4px; margin-top: 10px; border-radius: 2px; background: var(--panel2); overflow: hidden; }
   .ri-progreso span { display: block; height: 100%; width: 0; border-radius: 2px; background: var(--ruta); -webkit-transition: width 1s; transition: width 1s; }
   body.noche .ruta-info .bandera { background: #0E3B5C; }
@@ -485,6 +491,7 @@
           <span class="ri-flecha" id="riFlecha"><svg width="26" height="26" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20V5M6 10.5 12 4.5l6 6" fill="none" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" style="stroke: var(--ruta)"></path></svg></span>
           <div class="ri-man-txt"><b class="num" id="riManDist">--</b><span id="riManTxt"></span></div>
         </div>
+        <div class="ri-carriles oculto" id="riCarriles" aria-label="Carriles"></div>
         <div class="ri-progreso" aria-hidden="true"><span id="riBarra"></span></div>
       </div>
 
@@ -637,7 +644,7 @@
 (function () {
   'use strict';
 
-  var WEB_VERSION = '2.7.1';
+  var WEB_VERSION = '2.7.2';
   var INTERVALO_POS_MS = 500;
   var BUENOS_AIRES = [-58.3816, -34.6037];
   var DEMO = /[?&]demo=1/.test(location.search);
@@ -1211,7 +1218,8 @@
       if (!u.luces || u.frenando === f) return;
       u.frenando = f; u.luces.material = f ? matFrenoOn : matFrenoOff; u.brillo.visible = f;
     }
-    // Carriles: calle translúcida y líneas que se desvanecen a lo lejos (un solo objeto cada una, para el iPad viejo)
+    // Carriles: calle translúcida y líneas que se desvanecen a lo lejos (un solo objeto cada una, para el iPad viejo).
+    // Las líneas continuas van en tramos de 10 m: si fueran de una sola pieza, el desvanecido de las puntas las borraría enteras.
     function franjas(xs, largo, hueco, ancho, desde, hasta) {
       var pos = [], col = [];
       function a(z) { return z > 0 ? Math.max(0, 1 - z / 30) : Math.max(0, 1 + z / 110); }
@@ -1229,10 +1237,13 @@
     }
     var matLineas = new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, depthWrite: false, opacity: 0.55 });
     var matCalle = new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, depthWrite: false, opacity: 0.8, color: COL_ENT.noche.calle });
-    var calle = new THREE.Mesh(franjas([0], 160, 0, 10.6, 40, -120), matCalle); calle.renderOrder = -2; mundo.add(calle);
-    var bordes = new THREE.Mesh(franjas([-5.3, 5.3], 160, 0, 0.16, 40, -120), matLineas); mundo.add(bordes);
+    var calle = new THREE.Mesh(franjas([0], 10, 0, 10.6, 40, -120), matCalle); calle.renderOrder = -2; mundo.add(calle);
+    var bordes = new THREE.Mesh(franjas([-5.3, 5.3], 10, 0, 0.16, 40, -120), matLineas); mundo.add(bordes);
     var PERIODO = 9; // 3 m de línea + 6 m de espacio
-    var discontinuas = new THREE.Mesh(franjas([-1.75, 1.75], 3, 6, 0.14, 40 + PERIODO, -120), matLineas); mundo.add(discontinuas);
+    var discontinuas = new THREE.Mesh(franjas([1.75], 3, 6, 0.14, 40 + PERIODO, -120), matLineas); mundo.add(discontinuas);
+    // A la izquierda de tu carril, la contramano: doble línea amarilla continua
+    var matCentro = new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, depthWrite: false, opacity: 0.85, color: 0xF2C14E });
+    var centroAmarillo = new THREE.Mesh(franjas([-1.87, -1.63], 10, 0, 0.12, 40, -120), matCentro); mundo.add(centroAmarillo);
     // Franja de tu carril hasta el auto de adelante
     var gFranja = new THREE.PlaneGeometry(2.4, 1); gFranja.rotateX(-Math.PI / 2); gFranja.translate(0, 0.07, -0.5);
     var matFranja = new THREE.MeshBasicMaterial({ color: 0xFFB547, transparent: true, opacity: 0.35, depthWrite: false, blending: THREE.AdditiveBlending });
@@ -1262,15 +1273,34 @@
     var mallas = {}, tramosCerca = [], cruces = [], callesOrigen = null, conCalles = false;
     var ajuste = { x: 0, z: 0 }, rumboVista = null, carril = { lat: null, suave: null, calle: null };
     var camino = null, caminoT = 0;     // la calle hacia adelante desde tu auto, en muestras cada 4 m
+    var rutaLocal = [], rampaCerca = false;
+    // Distancia de un punto a la ruta (para preferir, en un acceso o una salida, la calle por donde va la ruta)
+    function distARuta(x, z) {
+      var dmin = Infinity;
+      rutaLocal.forEach(function (t) {
+        for (var i = 0; i < t.length - 1; i++) {
+          var a = t[i], b = t[i + 1], dx = b[0] - a[0], dz = b[1] - a[1], L2 = dx * dx + dz * dz;
+          var k = L2 > 0.0001 ? Math.max(0, Math.min(1, ((x - a[0]) * dx + (z - a[1]) * dz) / L2)) : 0;
+          dmin = Math.min(dmin, Math.sqrt(Math.pow(x - a[0] - dx * k, 2) + Math.pow(z - a[1] - dz * k, 2)));
+        }
+      });
+      return dmin;
+    }
     var RADIO_CALLES = 170;
     function alfaDist(x, z) { var d = Math.sqrt(x * x + z * z); return d < 90 ? 1 : Math.max(0, 1 - (d - 90) / (RADIO_CALLES - 90)); }
     // Carriles de una calle: desplazamientos desde el centro, positivos a la derecha de tu sentido de marcha
-    // Cantidad de carriles por sentido: uno cada 3 m o más
-    function nCarriles(c) { return Math.max(1, Math.floor((c.unaMano ? c.ancho : c.ancho / 2) / 3)); }
-    function carrilesDe(c) {
-      var l = [], i, n = nCarriles(c);
-      if (c.unaMano) { var w = c.ancho / n; for (i = 0; i < n; i++) l.push(-c.ancho / 2 + w * (i + 0.5)); }
-      else { var w2 = c.ancho / 2 / n; for (i = 0; i < n; i++) l.push(w2 * (i + 0.5)); }
+    // Carriles de una calle (vienen de OpenStreetMap o estimados): c.ida / c.vuelta = carriles en el sentido en que está
+    // dibujada y al revés, c.w = ancho de cada carril, c.divG = la división (metros a la derecha del centro, en ese sentido).
+    // "mismo" = vas en el sentido en que está dibujada. Devuelven desplazamientos a la derecha de TU sentido de marcha.
+    function carrilesDe(c, mismo) {
+      var div = mismo ? c.divG : -c.divG, n = mismo ? c.ida : c.vuelta, l = [], i;
+      if (!n) { div = -c.ancho / 2; n = Math.max(1, (c.ida || 0) + (c.vuelta || 0)); }   // a contramano de una mano: todos
+      for (i = 0; i < n; i++) l.push(div + c.w * (i + 0.5));
+      return l;
+    }
+    function todosLosCarriles(c, mismo) {
+      var div = mismo ? c.divG : -c.divG, otros = mismo ? c.vuelta : c.ida, l = carrilesDe(c, mismo);
+      for (var i = 0; i < otros; i++) l.push(div - c.w * (i + 0.5));
       return l;
     }
     // Línea corrida d metros a la derecha (según el sentido en que está dibujada)
@@ -1364,26 +1394,29 @@
     function armarCalles(datos, origen) {
       if (!datos || !datos.calles.length) {
         conCalles = false; callesRaiz.visible = false; camino = null;
-        calle.visible = bordes.visible = discontinuas.visible = true; pedirCuadro(); return;
+        calle.visible = bordes.visible = discontinuas.visible = centroAmarillo.visible = true; pedirCuadro(); return;
       }
       var L = { vereda: [[], []], cordon: [[], []], asfalto: [[], []], blanca: [[], []], amarilla: [[], []], frenado: [[], []], ruta: [[], []] };
       tramosCerca = [];
       datos.calles.forEach(function (c) {
         var ancho = c.ancho;
-        if (ancho >= 6) cinta(L.vereda[0], L.vereda[1], c.pts, ancho / 2 + 2.4, 0.02);      // vereda (las calles chicas no)
+        var esAutopista = c.clase === 'motorway' || c.clase === 'trunk';
+        if (ancho >= 6 && !c.rampa && !c.rural && !esAutopista) cinta(L.vereda[0], L.vereda[1], c.pts, ancho / 2 + 2.4, 0.02);   // vereda (no en calles chicas, rutas ni autopistas)
         cinta(L.cordon[0], L.cordon[1], c.pts, ancho / 2 + 0.18, 0.03);
         cinta(L.asfalto[0], L.asfalto[1], c.pts, ancho / 2, 0.04);
         if (ancho >= 6) {
           var i;
-          if (!c.unaMano) {
-            // Doble mano: amarilla en el medio (doble y continua en las avenidas), y blancas entre carriles
-            if (ancho >= 10) { cinta(L.amarilla[0], L.amarilla[1], desplazar(c.pts, 0.13), 0.06, 0.06); cinta(L.amarilla[0], L.amarilla[1], desplazar(c.pts, -0.13), 0.06, 0.06); }
-            else punteada(L.amarilla[0], L.amarilla[1], c.pts, 0.06, 0.13);
-            var m = nCarriles(c), w = ancho / 2 / m;
-            for (i = 1; i < m; i++) { punteada(L.blanca[0], L.blanca[1], desplazar(c.pts, w * i), 0.06); punteada(L.blanca[0], L.blanca[1], desplazar(c.pts, -w * i), 0.06); }
+          if (c.ida && c.vuelta) {
+            // Doble mano: la división con la contramano, siempre continua para que se vea bien (doble en las anchas)
+            if (ancho >= 10) { cinta(L.amarilla[0], L.amarilla[1], desplazar(c.pts, c.divG + 0.13), 0.07, 0.06); cinta(L.amarilla[0], L.amarilla[1], desplazar(c.pts, c.divG - 0.13), 0.07, 0.06); }
+            else cinta(L.amarilla[0], L.amarilla[1], desplazar(c.pts, c.divG), 0.09, 0.06);
+            for (i = 1; i < c.ida; i++) punteada(L.blanca[0], L.blanca[1], desplazar(c.pts, c.divG + c.w * i), 0.06);
+            for (i = 1; i < c.vuelta; i++) punteada(L.blanca[0], L.blanca[1], desplazar(c.pts, c.divG - c.w * i), 0.06);
           } else {
-            var n = nCarriles(c), w1 = ancho / n;
-            for (i = 1; i < n; i++) punteada(L.blanca[0], L.blanca[1], desplazar(c.pts, -ancho / 2 + w1 * i), 0.06);
+            var n = Math.max(1, (c.ida || 0) + (c.vuelta || 0));
+            for (i = 1; i < n; i++) punteada(L.blanca[0], L.blanca[1], desplazar(c.pts, -ancho / 2 + c.w * i), 0.06);
+            // Calzada de autopista (una mano): línea amarilla continua del lado del cantero central, como en las autopistas argentinas
+            if (esAutopista && !c.rampa) cinta(L.amarilla[0], L.amarilla[1], desplazar(c.pts, (c.sentido === -1 ? 1 : -1) * (ancho / 2 - 0.3)), 0.07, 0.06);
           }
         }
         for (var j = 0; j < c.pts.length - 1; j++) {
@@ -1404,20 +1437,21 @@
             var atras = Math.max(cr.anchoMax / 2, 3.5) + 2;
             if (Lq < atras + 2) return;
             var ux = dx / Lq, uz = dz / Lq, rx = -uz, rz = ux;
-            var cx = cr.p[0] - ux * atras, cz = cr.p[1] - uz * atras, desde = c.unaMano ? -c.ancho / 2 : 0, hasta = c.ancho / 2;
+            var cx = cr.p[0] - ux * atras, cz = cr.p[1] - uz * atras, desde = c.unaMano ? -c.ancho / 2 : (dir > 0 ? c.divG : -c.divG), hasta = c.ancho / 2;
             var p0 = [cx + rx * desde, cz + rz * desde], p1 = [cx + rx * hasta, cz + rz * hasta];
             quad(L.frenado[0], L.frenado[1], p0, p1, [p1[0] + ux * 0.45, p1[1] + uz * 0.45], [p0[0] + ux * 0.45, p0[1] + uz * 0.45], 0.065, alfaDist(cx, cz));
           });
         });
       });
-      (datos.ruta || []).forEach(function (t) { cinta(L.ruta[0], L.ruta[1], t, 1.5, 0.07); });   // apenas arriba del suelo, si no lo tapa el piso
+      rutaLocal = [];
+      (datos.ruta || []).forEach(function (t) { cinta(L.ruta[0], L.ruta[1], t, 1.5, 0.07); rutaLocal.push(t); });   // apenas arriba del suelo, si no lo tapa el piso
       Object.keys(L).forEach(function (k) { malla(k, L[k][0], L[k][1]); });
       callesOrigen = origen; conCalles = true; callesRaiz.visible = true; caminoT = 0;
-      calle.visible = bordes.visible = discontinuas.visible = false;   // la calle recta inventada ya no hace falta
+      calle.visible = bordes.visible = discontinuas.visible = centroAmarillo.visible = false;   // la calle recta inventada ya no hace falta
       pedirCuadro();
     }
     // Recorre la calle hacia adelante (cada 4 m), siguiendo la que va para el mismo lado en curvas y esquinas
-    function recorrer(p0, u0, largo) {
+    function recorrer(p0, u0, largo, rampaInicial) {
       var muestras = [{ s: 0, p: p0, u: u0 }], p = p0, u = u0;
       for (var s = 4; s <= largo; s += 4) {
         var q = [p[0] + u[0] * 4, p[1] + u[1] * 4], mejor = null;
@@ -1428,7 +1462,8 @@
           if (Math.abs(cosA) < 0.75) continue;
           var k = Math.max(0, Math.min(1, ((q[0] - t.a[0]) * dx + (q[1] - t.a[1]) * dz) / L2));
           var px = t.a[0] + dx * k, pz = t.a[1] + dz * k, d = Math.sqrt((q[0] - px) * (q[0] - px) + (q[1] - pz) * (q[1] - pz));
-          if (d < 5 && (!mejor || d < mejor.d)) mejor = { d: d, p: [px, pz], u: cosA < 0 ? [-ux, -uz] : [ux, uz] };
+          var costoR = d + (!!t.c.rampa !== !!rampaInicial ? 3 : 0) + (rutaLocal.length ? Math.min(10, distARuta(px, pz)) * 0.3 : 0);
+          if (d < 5 && (!mejor || costoR < mejor.costo)) mejor = { d: d, costo: costoR, p: [px, pz], u: cosA < 0 ? [-ux, -uz] : [ux, uz] };
         }
         if (mejor) { p = mejor.p; u = [u[0] * 0.5 + mejor.u[0] * 0.5, u[1] * 0.5 + mejor.u[1] * 0.5]; var lu = Math.sqrt(u[0] * u[0] + u[1] * u[1]) || 1; u = [u[0] / lu, u[1] / lu]; }
         else p = q;
@@ -1441,6 +1476,66 @@
       var m = camino.muestras, i = Math.min(m.length - 2, Math.max(0, Math.floor(s / 4)));
       var a = m[i], b = m[i + 1], k = Math.max(0, Math.min(1.5, (s - a.s) / 4));
       return { p: [a.p[0] + (b.p[0] - a.p[0]) * k, a.p[1] + (b.p[1] - a.p[1]) * k], u: b.u };
+    }
+    // ---- En qué carril vas: probabilidades por carril, con el GPS (pista débil) y los autos que ve la cámara (pistas fuertes) ----
+    var est = { c: null, mismo: null, lats: null, P: null, idx: null, t: 0, tGps: 0, tCam: 0 };
+    function normalizar(P) {
+      var s = 0; P.forEach(function (x) { s += x; });
+      return s > 1e-9 ? P.map(function (x) { return x / s; }) : P.map(function () { return 1 / P.length; });
+    }
+    function decidirCarril() {
+      var mejor = 0;
+      est.P.forEach(function (x, i) { if (x > est.P[mejor]) mejor = i; });
+      // Solo cambiamos con evidencia clara (así el auto no salta de carril cada vez que el GPS se mueve)
+      if (est.idx === null || est.idx >= est.P.length || (est.P[mejor] > 0.55 && est.P[mejor] - est.P[est.idx] > 0.2)) est.idx = mejor;
+      carril.lat = est.lats[est.idx];
+    }
+    function estimarCarrilGps(c, mismo, latGps, latMostrada) {
+      var ahoraT = Date.now();
+      if (est.c !== c || est.mismo !== mismo) {
+        // Calle nueva (o el pedazo siguiente de la misma): arrancamos cerca de donde venías, medido desde la calle nueva
+        var previo = latMostrada !== null && latMostrada !== undefined ? latMostrada : latGps;
+        est.c = c; est.mismo = mismo; est.lats = carrilesDe(c, mismo); est.idx = null; est.t = ahoraT;
+        est.P = normalizar(est.lats.map(function (l) { return Math.exp(-Math.pow(l - previo, 2) / (2 * 4)); }));
+        carril.calle = c; carril.mismo = mismo;
+      }
+      // Con el tiempo, puede que hayas cambiado de carril: un poco de probabilidad pasa a los vecinos
+      var dt = Math.min(2, (ahoraT - est.t) / 1000), e = Math.min(0.3, 0.03 * dt), P = est.P;
+      est.t = ahoraT;
+      est.P = P.map(function (x, i) { var izq = P[i - 1] !== undefined ? P[i - 1] : x, der = P[i + 1] !== undefined ? P[i + 1] : x; return (1 - e) * x + e / 2 * (izq + der); });
+      // El GPS, una vez por segundo y con poco peso (su error es de varios metros y se repite)
+      if (ahoraT - est.tGps > 1000) {
+        est.tGps = ahoraT;
+        var sig = Math.max(4, (precisionGPS || 8) * 1.2);
+        est.P = normalizar(est.P.map(function (x, i) { return x * (0.25 + Math.exp(-Math.pow(latGps - est.lats[i], 2) / (2 * sig * sig))); }));
+      }
+      decidirCarril();
+    }
+    // Cada auto que ve la cámara "vota": si estuvieras en el carril i, ¿caería en un carril de su sentido?
+    function estimarCarrilCamara(objs) {
+      if (!camino || est.c !== camino.c || !est.P || simTimer) return;
+      if (rampaCerca) return;     // cerca de un acceso o una salida hay autos fuera de los carriles de tu calle: no votan
+      var ahoraT = Date.now();
+      if (ahoraT - est.tCam < 300) return;
+      var c = camino.c, div = camino.mismo ? c.divG : -c.divG, otros = [], L = est.lats.map(function () { return 1; }), votos = 0;
+      for (var k = 0; k < (camino.mismo ? c.vuelta : c.ida); k++) otros.push(div - c.w * (k + 0.5));
+      objs.forEach(function (o) {
+        if (!TIPOS_VEHICULO[o.tipo] || o.y < 4 || o.y > 40 || o.vAbs === undefined || (o.visto || 0) < 4 || (o.vYo || 0) < 2) return;
+        var mismoSentido = o.vAbs > 2, deFrente = o.vAbs < -2;
+        if (!mismoSentido && !deFrente) return;                 // detenido o dudoso (por ejemplo, estacionado): no sirve
+        var destino = mismoSentido ? est.lats : otros;
+        if (!destino.length) return;
+        est.lats.forEach(function (li, i) {
+          var pos = li + o.x, dmin = Infinity;
+          destino.forEach(function (lc) { dmin = Math.min(dmin, Math.abs(pos - lc)); });
+          L[i] *= 0.15 + 0.85 * Math.exp(-dmin * dmin / (2 * 0.9 * 0.9));
+        });
+        votos++;
+      });
+      if (!votos) return;
+      est.tCam = ahoraT;
+      est.P = normalizar(est.P.map(function (x, i) { return x * Math.sqrt(L[i]); }));   // raíz: que un solo cuadro no decida todo
+      decidirCarril();
     }
     // De coordenadas locales de la calle a las de tu auto (x a la derecha, z hacia atrás)
     function aAuto(q) {
@@ -1455,26 +1550,29 @@
       var cx = (p.lng - callesOrigen.lng) * m.x, cz = -(p.lat - callesOrigen.lat) * m.y;
       var h = p.h || 0, hr = h * Math.PI / 180, fx = Math.sin(hr), fz = -Math.cos(hr);   // hacia adelante, en locales
       var mejor = null;
+      rampaCerca = false;
       for (var i = 0; i < tramosCerca.length; i++) {
         var t = tramosCerca[i], dx = t.b[0] - t.a[0], dz = t.b[1] - t.a[1], L2 = dx * dx + dz * dz;
         if (L2 < 0.0001) continue;
         var k = Math.max(0, Math.min(1, ((cx - t.a[0]) * dx + (cz - t.a[1]) * dz) / L2));
         var px = t.a[0] + dx * k, pz = t.a[1] + dz * k, d = Math.sqrt((cx - px) * (cx - px) + (cz - pz) * (cz - pz));
+        if (t.c.rampa && d < 60) rampaCerca = true;
         var L = Math.sqrt(L2), ux = dx / L, uz = dz / L, cosA = ux * fx + uz * fz;
         if (Math.abs(cosA) < 0.64) continue;            // la calle va para otro lado (más de 50°)
         var costo = d + (1 - Math.abs(cosA)) * 20;
-        if (d < 16 && (!mejor || costo < mejor.costo)) mejor = { costo: costo, px: px, pz: pz, ux: cosA < 0 ? -ux : ux, uz: cosA < 0 ? -uz : uz, c: t.c };
+        // En un acceso o una salida la rampa y la autopista van casi juntas: pasar de una a otra solo si queda claramente más cerca
+        if (est.c && !!t.c.rampa !== !!est.c.rampa) costo += 4;
+        // Y si hay ruta, preferir la calle por donde va la ruta
+        if (rutaLocal.length && d < 16) costo += Math.min(12, distARuta(px, pz)) * 0.5;
+        if (d < 16 && (!mejor || costo < mejor.costo)) mejor = { costo: costo, px: px, pz: pz, ux: cosA < 0 ? -ux : ux, uz: cosA < 0 ? -uz : uz, c: t.c, mismo: cosA > 0 };
       }
       var objX = 0, objZ = 0, rumboObj = h;
       if (mejor) {
         var rx = -mejor.uz, rz = mejor.ux;                              // a la derecha del sentido de marcha
-        // Carril: el más cercano a lo que dice el GPS (promediado unos segundos), y solo cambia si otro queda claramente más cerca
-        var lats = carrilesDe(mejor.c), latGps = (cx - mejor.px) * rx + (cz - mejor.pz) * rz;
-        if (carril.calle !== mejor.c) { carril.calle = mejor.c; carril.suave = latGps; carril.lat = null; }
-        carril.suave += (latGps - carril.suave) * 0.02;
-        var cerca = lats[lats.length - 1];
-        lats.forEach(function (l) { if (Math.abs(l - carril.suave) < Math.abs(cerca - carril.suave)) cerca = l; });
-        if (carril.lat === null || lats.indexOf(carril.lat) < 0 || Math.abs(carril.lat - carril.suave) - Math.abs(cerca - carril.suave) > 0.8) carril.lat = cerca;
+        var latGps = (cx - mejor.px) * rx + (cz - mejor.pz) * rz;
+        // Dónde está dibujado tu auto ahora, medido desde esta calle: al pasar de un acceso a la autopista quedás en el carril de ese lado
+        var latMostrada = (cx + ajuste.x - mejor.px) * rx + (cz + ajuste.z - mejor.pz) * rz;
+        estimarCarrilGps(mejor.c, mejor.mismo, latGps, est.c ? latMostrada : null);
         objX = mejor.px + rx * carril.lat - cx; objZ = mejor.pz + rz * carril.lat - cz;
         var rumboCalle = (Math.atan2(mejor.ux, -mejor.uz) * 180 / Math.PI + 360) % 360;
         rumboObj = interpAngulo(h, rumboCalle, 0.7);                     // alineamos con la calle, sin ignorar el GPS
@@ -1488,7 +1586,7 @@
       if (mejor && tAhora - caminoT > 120) {
         caminoT = tAhora;
         var auto = [cx + ajuste.x, cz + ajuste.z], centro = [auto[0] - (-mejor.uz) * carril.lat, auto[1] - mejor.ux * carril.lat];
-        camino = { muestras: recorrer(centro, [mejor.ux, mejor.uz], 100), auto: auto, lat: carril.lat, c: mejor.c };
+        camino = { muestras: recorrer(centro, [mejor.ux, mejor.uz], 100, mejor.c.rampa), auto: auto, lat: carril.lat, c: mejor.c, mismo: mejor.mismo };
       } else if (!mejor) camino = null;
       if (camino) camino.auto = [cx + ajuste.x, cz + ajuste.z];
       pedirCuadro();
@@ -1497,6 +1595,7 @@
       var c = COL_ENT[t === 'dia' ? 'dia' : 'noche'];
       matObj.color.setHex(c.cuerpo); matObjV.color.setHex(c.vidrio); matPers.color.setHex(c.persona);
       matLineas.color.setHex(c.linea); matCalle.color.setHex(c.calle);
+      matCentro.color.setHex(t === 'dia' ? 0xD99A1E : 0xF2C14E);
       matLineas.opacity = t === 'dia' ? 0.7 : 0.55;
       // De noche la franja brilla; de día, sobre fondo claro, va como color suave
       matFranja.blending = t === 'dia' ? THREE.NormalBlending : THREE.AdditiveBlending; matFranja.needsUpdate = true;
@@ -1505,6 +1604,7 @@
       capas.blanca.m.color.setHex(cc.blanca); capas.amarilla.m.color.setHex(cc.amarilla); capas.frenado.m.color.setHex(cc.blanca);
       capas.blanca.m.opacity = t === 'dia' ? 0.9 : 0.55; capas.frenado.m.opacity = t === 'dia' ? 0.95 : 0.7;
       matAlfombra.blending = t === 'dia' ? THREE.NormalBlending : THREE.AdditiveBlending; matAlfombra.needsUpdate = true;
+      matGuia.blending = t === 'dia' ? THREE.NormalBlending : THREE.AdditiveBlending; matGuia.opacity = t === 'dia' ? 0.35 : 0.28; matGuia.needsUpdate = true;
     }
 
     // ---- Franja azul con flechas delante de tu auto (por tu carril, siguiendo la calle) ----
@@ -1519,15 +1619,15 @@
     texFlecha.wrapS = THREE.ClampToEdgeWrapping; texFlecha.wrapT = THREE.RepeatWrapping;
     var matAlfombra = new THREE.MeshBasicMaterial({ map: texFlecha, color: 0x3B9EFF, transparent: true, opacity: 0.85, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending });
     var alfombra = new THREE.Mesh(new THREE.BufferGeometry(), matAlfombra); alfombra.renderOrder = -2; alfombra.frustumCulled = false; mundo.add(alfombra);
-    function armarAlfombra(desde, hasta) {
+    function armarAlfombra(desde, hasta, latEn) {
       var pos = [], uv = [], prev = null, ANCHO = 1.15, pasos = [];
       for (var s0 = desde; s0 < hasta; s0 += 2) pasos.push(s0);
       pasos.push(hasta);
       pasos.forEach(function (s) {
         var c, u;
         if (camino) {
-          var e = enCamino(s), rx = -e.u[1], rz = e.u[0];
-          c = aAuto([e.p[0] + rx * camino.lat, e.p[1] + rz * camino.lat]);
+          var e = enCamino(s), rx = -e.u[1], rz = e.u[0], la = latEn ? latEn(s) : camino.lat;
+          c = aAuto([e.p[0] + rx * la, e.p[1] + rz * la]);
           var r = rumboVista * Math.PI / 180; u = [Math.cos(r) * e.u[0] + Math.sin(r) * e.u[1], -Math.sin(r) * e.u[0] + Math.cos(r) * e.u[1]];
         } else { c = [0, -s]; u = [0, -1]; }
         var nx = -u[1] * ANCHO, nz = u[0] * ANCHO, izq = [c[0] - nx, c[1] - nz], der = [c[0] + nx, c[1] + nz], v = s / 3.2;
@@ -1541,6 +1641,69 @@
       g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
       g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
       alfombra.geometry.dispose(); alfombra.geometry = g;
+    }
+
+    // ---- Guía de carriles antes de un giro: flechas pintadas en cada carril y los que sirven, en azul ----
+    var matGuia = new THREE.MeshBasicMaterial({ color: 0x3B9EFF, transparent: true, opacity: 0.28, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending });
+    var mallaGuia = new THREE.Mesh(new THREE.BufferGeometry(), matGuia); mallaGuia.renderOrder = -3; mallaGuia.frustumCulled = false; mallaGuia.visible = false; mundo.add(mallaGuia);
+    var matsFlecha = {}, flechas3d = [];
+    function matFlecha(f, ok) {
+      var k = f.join(',') + (ok ? '+' : '-');
+      if (matsFlecha[k]) return matsFlecha[k];
+      var cv = document.createElement('canvas'); cv.width = 64; cv.height = 80;
+      var cx = cv.getContext('2d'); cx.scale(64 / 24, 80 / 30);
+      cx.strokeStyle = '#FFFFFF'; cx.lineWidth = 3; cx.lineCap = 'round'; cx.lineJoin = 'round';
+      f.forEach(function (x) { if (typeof Path2D !== 'undefined') cx.stroke(new Path2D(trazoDe(x))); });
+      return (matsFlecha[k] = new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(cv), transparent: true, opacity: ok ? 0.95 : 0.4, depthWrite: false, side: THREE.DoubleSide }));
+    }
+    // Punto de la calle en coordenadas de tu auto, a s metros y "la" metros a la derecha del centro
+    function puntoCalle(s, la) {
+      var e = enCamino(s), q = aAuto([e.p[0] - e.u[1] * la, e.p[1] + e.u[0] * la]);
+      var r = rumboVista * Math.PI / 180, u = [Math.cos(r) * e.u[0] + Math.sin(r) * e.u[1], -Math.sin(r) * e.u[0] + Math.cos(r) * e.u[1]];
+      return { p: q, u: u };
+    }
+    function franjaLateral(pos, la, medio, desde, hasta, y) {
+      var prev = null;
+      for (var s = desde; s <= hasta + 0.01; s += Math.max(0.5, Math.min(3, hasta - s) || 3)) {
+        var k = puntoCalle(s, la), nx = -k.u[1] * medio, nz = k.u[0] * medio, i = [k.p[0] - nx, k.p[1] - nz], d = [k.p[0] + nx, k.p[1] + nz];
+        if (prev) pos.push(prev.i[0], y, prev.i[1], prev.d[0], y, prev.d[1], d[0], y, d[1], prev.i[0], y, prev.i[1], d[0], y, d[1], i[0], y, i[1]);
+        prev = { i: i, d: d };
+        if (s >= hasta) break;
+      }
+    }
+    // Devuelve hacia qué carril conviene ir (desplazamiento), o null
+    function mostrarGuia(g) {
+      flechas3d.forEach(function (m) { m.visible = false; });
+      mallaGuia.visible = false;
+      if (!g || !camino || !conCalles) return null;
+      var c = camino.c, izq = c.unaMano ? -c.ancho / 2 : (camino.mismo ? c.divG : -c.divG), ancho = c.ancho / 2 - izq;
+      var N = g.carriles.length, ww = ancho / N, centros = g.carriles.map(function (x, i) { return izq + ww * (i + 0.5); });
+      var hasta = Math.max(4, g.dist - 3), desde = Math.max(3, g.dist - 55), pos = [];
+      g.carriles.forEach(function (x, i) { if (x.ok) franjaLateral(pos, centros[i], ww / 2 - 0.15, desde, hasta, 0.085); });
+      if (pos.length) {
+        var geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+        mallaGuia.geometry.dispose(); mallaGuia.geometry = geo; mallaGuia.visible = true;
+      }
+      // Flechas pintadas en el piso, unos 16 m antes de la esquina
+      var sF = g.dist - 16;
+      if (sF > 3) g.carriles.forEach(function (x, i) {
+        var m = flechas3d[i];
+        if (!m) { m = flechas3d[i] = new THREE.Mesh(new THREE.BufferGeometry(), matFlecha(['straight'], true)); m.renderOrder = -2; m.frustumCulled = false; mundo.add(m); }
+        var k = puntoCalle(sF, centros[i]), fx = k.u[0], fz = k.u[1], rx = -fz, rz = fx, W = Math.min(1.0, ww * 0.34), Lg = 2.8;
+        var a = [k.p[0] - rx * W - fx * Lg, k.p[1] - rz * W - fz * Lg], b = [k.p[0] + rx * W - fx * Lg, k.p[1] + rz * W - fz * Lg];
+        var c2 = [k.p[0] + rx * W + fx * Lg, k.p[1] + rz * W + fz * Lg], d = [k.p[0] - rx * W + fx * Lg, k.p[1] - rz * W + fz * Lg];
+        var geo2 = new THREE.BufferGeometry(), y = 0.095;
+        geo2.setAttribute('position', new THREE.Float32BufferAttribute([a[0], y, a[1], b[0], y, b[1], c2[0], y, c2[1], a[0], y, a[1], c2[0], y, c2[1], d[0], y, d[1]], 3));
+        geo2.setAttribute('uv', new THREE.Float32BufferAttribute([0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1], 2));
+        m.geometry.dispose(); m.geometry = geo2; m.material = matFlecha(x.f, x.ok); m.visible = true;
+      });
+      // Si tu carril no sirve, la franja con flechas te lleva al carril correcto más cercano
+      var tuyo = 0;
+      centros.forEach(function (cc, i) { if (Math.abs(cc - camino.lat) < Math.abs(centros[tuyo] - camino.lat)) tuyo = i; });
+      if (g.carriles[tuyo].ok) return null;
+      var mejor = null;
+      g.carriles.forEach(function (x, i) { if (x.ok && (mejor === null || Math.abs(i - tuyo) < Math.abs(mejor - tuyo))) mejor = i; });
+      return mejor === null ? null : { lat: centros[mejor], hasta: Math.max(6, g.dist - 10) };
     }
 
     // ---- Semáforo en la esquina de adelante (cuando la cámara ve uno) ----
@@ -1582,13 +1745,14 @@
     // Carril más cercano (de los dos sentidos) para dejar prolijos a los autos que ve la cámara
     var TIPOS_VEHICULO = { auto: 1, camion: 1, colectivo: 1, moto: 1 };
     function alCarril(lat) {
-      var c = camino.c, mios = carrilesDe(c), todos = c.unaMano ? mios : mios.concat(mios.map(function (l) { return -l; })), mejor = lat;
+      var todos = todosLosCarriles(camino.c, camino.mismo), mejor = lat;
       todos.forEach(function (l) { if (Math.abs(l - lat) < Math.abs(mejor - lat) || mejor === lat) mejor = l; });
       return Math.abs(mejor - lat) < 1.4 ? mejor : lat;
     }
     function actualizarEntorno(d) {
       if (!d) d = { objetos: [], avance: avanceSinDatos };
       discontinuas.position.z = (d.avance || 0) % PERIODO;
+      estimarCarrilCamara(d.objetos || []);
       var vistos = {};
       (d.objetos || []).forEach(function (o) {
         var g = objetos[o.id];
@@ -1598,13 +1762,19 @@
           // Lo ubicamos siguiendo la calle (en una curva queda sobre la calle, no en línea recta) y, si es un vehículo, en su carril
           var lat = camino.lat + o.x;
           if (TIPOS_VEHICULO[o.tipo]) lat = alCarril(lat);
+          var divMia = camino.mismo ? camino.c.divG : -camino.c.divG;
+          var calzadaAutopista = camino.c.unaMano && !camino.c.rampa && (camino.c.clase === 'motorway' || camino.c.clase === 'trunk');
+          var deFrente = (o.vAbs !== undefined && o.vAbs < -1.5) || (camino.c.ida && camino.c.vuelta && lat < divMia - 0.3 && TIPOS_VEHICULO[o.tipo]) ||
+            (calzadaAutopista && TIPOS_VEHICULO[o.tipo] && lat < -camino.c.ancho / 2 - 1.5);
           var e = enCamino(o.y), q = aAuto([e.p[0] - e.u[1] * lat, e.p[1] + e.u[0] * lat]);
           var r = rumboVista * Math.PI / 180, tx = Math.cos(r) * e.u[0] + Math.sin(r) * e.u[1], tz = -Math.sin(r) * e.u[0] + Math.cos(r) * e.u[1];
           g.position.set(q[0], 0, q[1]);
-          g.rotation.y = Math.atan2(-tx, -tz) + (o.vAbs !== undefined && o.vAbs < -1.5 ? Math.PI : 0);   // los que vienen de frente, al revés
+          g.rotation.y = Math.atan2(-tx, -tz) + (deFrente ? Math.PI : 0);   // los que vienen de frente, al revés
         } else {
           g.position.set(o.x, 0, -o.y);
-          g.rotation.y = o.giro ? -o.giro * Math.PI / 180 : (o.vAbs !== undefined && o.vAbs < -1.5 ? Math.PI : 0);
+          // Sin calles del mapa: de frente si la cámara lo midió, o si va del otro lado de la doble línea amarilla
+          var deFrente2 = (o.vAbs !== undefined && o.vAbs < -1.5) || (simTimer === null && TIPOS_VEHICULO[o.tipo] && o.x < -2.2);
+          g.rotation.y = o.giro ? -o.giro * Math.PI / 180 : (deFrente2 ? Math.PI : 0);
         }
         var mat = o.estado === 'peligro' ? matPeligro : o.estado === 'aviso' ? matAviso : g.userData.base;   // el de adelante lo marca la franja
         for (var i = 0; i < g.userData.cuerpo.length; i++) g.userData.cuerpo[i].material = mat;
@@ -1614,8 +1784,14 @@
       // Franja con flechas: hasta el de adelante (roja si hay peligro), o unos 22 m si la calle está libre
       franja.visible = false;
       var hasta = d.lider ? Math.min(40, d.lider.y - 2.6) : 22;
+      var cambio = mostrarGuia(typeof guiaDeCarriles === 'function' ? guiaDeCarriles() : null), latEn = null;
+      if (cambio && camino) {
+        var desdeLat = camino.lat;
+        latEn = function (s) { var k = Math.max(0, Math.min(1, (s - 3) / Math.max(4, cambio.hasta - 3))); k = k * k * (3 - 2 * k); return desdeLat + (cambio.lat - desdeLat) * k; };
+        if (!d.lider) hasta = Math.min(40, Math.max(hasta, cambio.hasta));
+      }
       if (hasta > 3) {
-        armarAlfombra(2.4, hasta); alfombra.visible = true;
+        armarAlfombra(2.4, hasta, latEn); alfombra.visible = true;
         matAlfombra.color.setHex(d.peligro ? 0xFF4D5E : colorAmb);
         texFlecha.offset.y = -(((d.avance || 0) / 6) % 1);
       } else alfombra.visible = false;
@@ -1702,6 +1878,7 @@
     seguirTramo(velocidad);
     avanzarRuta(p);
     pedirVelMax(p); mostrarVelMax();
+    pedirCarriles(p);
     ultima = p;
 
     dibujarDial(velocidad === null ? null : Math.round(velocidad * 3.6));
@@ -1787,7 +1964,9 @@
     $('vProm').textContent = viaje.tMov > 30 ? Math.round(viaje.dist / viaje.tMov * 3.6) : '--';
     if (alt !== undefined) $('vAlt').textContent = alt === null ? '--' : Math.round(alt);
   }
+  var precisionGPS = null;   // metros (la usa el estimador de carril)
   function actualizarViaje(p) {
+    if (p.accuracy) precisionGPS = p.accuracy;
     var alt = (p.alt !== undefined && p.alt !== null) ? p.alt : null;
     if (p.accuracy && p.accuracy <= 30) {
       if (ultimoPuntoViaje) {
@@ -2164,7 +2343,7 @@
       var escalaD = r.distance > 0 ? ruta.dist / r.distance : 1, acumP = 0;
       var pasos = (r.legs && r.legs[0] && r.legs[0].steps) || [];
       for (var sp = 0; sp < pasos.length; sp++) {
-        ruta.pasos.push({ en: acumP * escalaD, m: pasos[sp].maneuver || {}, calle: pasos[sp].name || pasos[sp].ref || '' });
+        ruta.pasos.push({ en: acumP * escalaD, m: pasos[sp].maneuver || {}, calle: pasos[sp].name || pasos[sp].ref || '', carriles: carrilesDePaso(pasos[sp]) });
         acumP += pasos[sp].distance || 0;
       }
       // La primera vez ajustamos los tiempos para que coincidan con la llegada que calculó Waze
@@ -2225,6 +2404,41 @@
   var DIR = { 'uturn': 'en U', 'sharp right': 'fuerte a la derecha', 'right': 'a la derecha', 'slight right': 'levemente a la derecha', 'straight': 'derecho',
     'slight left': 'levemente a la izquierda', 'left': 'a la izquierda', 'sharp left': 'fuerte a la izquierda' };
   var ORDINAL = ['', 'primera', 'segunda', 'tercera', 'cuarta', 'quinta', 'sexta'];
+  // Carriles de la esquina donde se hace la maniobra (OSRM los saca de turn:lanes de OpenStreetMap):
+  // [{ f: ['left', 'straight'], ok: true }, ...] de izquierda a derecha, o null si no hay datos
+  function carrilesDePaso(paso) {
+    var ints = paso.intersections || [], l = ints[0] && ints[0].lanes;
+    if (!l || l.length < 2) return null;
+    return l.map(function (c) { return { f: (c.indications && c.indications.length ? c.indications : ['straight']), ok: !!c.valid }; });
+  }
+  // Flechita de un carril (puede tener varias: por ejemplo, derecho y a la derecha)
+  var TRAZO_FLECHA = {
+    straight: 'M12 27V6M7 11l5-5 5 5',
+    left: 'M15 27V15q0-5-5-5H5M8.5 6.5 5 10l3.5 3.5',
+    right: 'M9 27V15q0-5 5-5h5M15.5 6.5 19 10l-3.5 3.5',
+    'slight left': 'M14 27V17l-5-9M7.5 12.5 9 8l4.5 1.2',
+    'slight right': 'M10 27V17l5-9M16.5 12.5 15 8l-4.5 1.2',
+    'sharp left': 'M15 27V12l-8 8M7 15v5h5',
+    'sharp right': 'M9 27V12l8 8M17 15v5h-5',
+    uturn: 'M15 27V11q0-5-4.5-5T6 11v6M3 14l3 3 3-3'
+  };
+  function trazoDe(f) { return TRAZO_FLECHA[f] || (/left/.test(f) ? TRAZO_FLECHA.left : /right/.test(f) ? TRAZO_FLECHA.right : TRAZO_FLECHA.straight); }
+  function svgCarril(flechas) {
+    return '<svg width="24" height="30" viewBox="0 0 24 30" aria-hidden="true">' + flechas.map(function (f) {
+      return '<path d="' + trazoDe(f) + '" fill="none" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="stroke: var(--texto)"></path>';
+    }).join('') + '</svg>';
+  }
+  var guiaCarriles = null, claveCarriles = '';
+  function guiaDeCarriles() { return guiaCarriles; }   // la usa el panel 3D
+  function mostrarCarriles(prox, d) {
+    var l = prox && prox.carriles && d < 1500 ? prox.carriles : null, clave = l ? JSON.stringify(l) : '';
+    if (clave !== claveCarriles) {
+      claveCarriles = clave;
+      $('riCarriles').innerHTML = l ? l.map(function (c) { return '<span class="carril' + (c.ok ? ' ok' : '') + '">' + svgCarril(c.f) + '</span>'; }).join('') : '';
+      $('riCarriles').className = 'ri-carriles' + (l ? '' : ' oculto');
+    }
+    guiaCarriles = l && d < 220 ? { carriles: l, dist: d } : null;
+  }
   function textoManiobra(p) {
     var t = p.m.type, dir = DIR[p.m.modifier] || '', c = p.calle;
     if (t === 'arrive') return 'Llegás a destino';
@@ -2248,8 +2462,9 @@
         if (p.en > recorrido + 3) { prox = p; break; }
       }
     }
-    if (!prox) { $('riManiobra').className = 'ri-maniobra oculto'; return; }
+    if (!prox) { $('riManiobra').className = 'ri-maniobra oculto'; mostrarCarriles(null, 0); return; }
     var d = prox.en - recorrido;
+    mostrarCarriles(prox, d);
     $('riManDist').textContent = d >= 1000 ? (d / 1000).toFixed(1).replace('.', ',') + ' km' : (d < 30 ? 'Ahora' : (Math.round(d / 10) * 10) + ' m');
     $('riManTxt').textContent = textoManiobra(prox);
     var ang = prox.m.type === 'arrive' ? 0 : (GIRO[prox.m.modifier] || 0);
@@ -2274,6 +2489,93 @@
       }
       velMax = v; mostrarVelMax();
     }, function () { consultandoVel = false; });
+  }
+  // ---- Carriles reales de OpenStreetMap (el mapa base no los trae) ----
+  // Cada 200 m (o 90 s) pedimos a Overpass las calles de alrededor con sus datos de carriles y ancho,
+  // y los cruzamos con las calles del mapa para dibujar la cantidad real de carriles por sentido.
+  var callesOSM = [], consultandoCarriles = false, lugarCarriles = null, horaCarriles = 0;
+  function pedirCarriles(p) {
+    if (consultandoCarriles) return;
+    if (lugarCarriles && distancia(lugarCarriles, p) < 200 && ahora() - horaCarriles < 90000) return;
+    if (lugarCarriles && ahora() - horaCarriles < 15000) return;      // nunca más de una consulta cada 15 s
+    consultandoCarriles = true; horaCarriles = ahora(); lugarCarriles = { lat: p.lat, lng: p.lng };
+    var q = '[out:json][timeout:15];way(around:350,' + p.lat.toFixed(5) + ',' + p.lng.toFixed(5) + ')' +
+      '[highway~"^(motorway|trunk|primary|secondary|tertiary|unclassified|residential|living_street|service|motorway_link|trunk_link|primary_link|secondary_link|tertiary_link)$"]' +
+      '[~"^(lanes|lanes:forward|lanes:backward|width|oneway)$"~"."];out tags geom;';
+    pedirJSON('https://overpass-api.de/api/interpreter?data=' + encodeURIComponent(q), 20000, function (d) {
+      consultandoCarriles = false;
+      var nuevas = [];
+      ((d && d.elements) || []).forEach(function (e) {
+        if (!e.geometry || e.geometry.length < 2 || !e.tags) return;
+        var t = e.tags, num = function (v) { var n = parseFloat(v); return n > 0 ? n : null; };
+        var ow = t.oneway === 'yes' || t.oneway === '1' || t.oneway === 'true' ? 1 : t.oneway === '-1' ? -1 : (t.oneway === 'no' ? 0 : (/^motorway/.test(t.highway) ? 1 : 0));
+        nuevas.push({ id: e.id, pts: e.geometry.map(function (g) { return [g.lon, g.lat]; }), sentido: ow, enlace: /_link$/.test(t.highway || ''),
+          lanes: num(t.lanes), fwd: num(t['lanes:forward']), bwd: num(t['lanes:backward']), width: num(t.width) });
+      });
+      // Juntamos con lo que ya teníamos (sin repetir) y olvidamos lo que quedó lejos
+      var porId = {};
+      callesOSM.concat(nuevas).forEach(function (c) {
+        var m = c.pts[Math.floor(c.pts.length / 2)];
+        if (distancia({ lat: m[1], lng: m[0] }, p) < 1500) porId[c.id] = c;
+      });
+      callesOSM = Object.keys(porId).map(function (k) { return porId[k]; });
+      callesEstado = null;   // que el 3D se rearme con los datos nuevos
+    }, function () { consultandoCarriles = false; });
+  }
+  // Para cada calle del mapa: carriles hacia donde está dibujada (ida) y al revés (vuelta), ancho de carril
+  // y dónde va la división, en metros a la derecha del centro (mirando en el sentido en que está dibujada).
+  function completarCarriles(c, local) {
+    var dato = null;
+    if (callesOSM.length && c.pts.length > 1) {
+      // Buscamos la calle de OpenStreetMap que pasa por el medio de esta y va para el mismo lado
+      var k = Math.floor((c.pts.length - 1) / 2), a = c.pts[k], b = c.pts[k + 1];
+      var mx = (a[0] + b[0]) / 2, mz = (a[1] + b[1]) / 2, dx = b[0] - a[0], dz = b[1] - a[1], L = Math.sqrt(dx * dx + dz * dz) || 1, mejor = null;
+      callesOSM.forEach(function (o) {
+        if (!!o.enlace !== !!c.rampa) return;    // rampa con rampa, calle con calle
+        var q = o.pts.map(local);
+        for (var i = 0; i < q.length - 1; i++) {
+          var ex = q[i + 1][0] - q[i][0], ez = q[i + 1][1] - q[i][1], E2 = ex * ex + ez * ez;
+          if (E2 < 0.01) continue;
+          var E = Math.sqrt(E2), cosA = (ex * dx + ez * dz) / (E * L);
+          if (Math.abs(cosA) < 0.9) continue;
+          var s = Math.max(0, Math.min(1, ((mx - q[i][0]) * ex + (mz - q[i][1]) * ez) / E2));
+          var d = Math.sqrt(Math.pow(mx - q[i][0] - ex * s, 2) + Math.pow(mz - q[i][1] - ez * s, 2));
+          if (d < 8 && (!mejor || d < mejor.d)) mejor = { d: d, o: o, mismo: cosA > 0 };
+        }
+      });
+      if (mejor) dato = mejor;
+    }
+    if (dato) {
+      var o = dato.o, unaMano = o.sentido !== 0, ida, vuelta;
+      if (unaMano) {
+        var mismoSentido = (o.sentido === 1) === dato.mismo;    // ¿la calle del mapa está dibujada en el sentido de circulación?
+        var n = o.lanes || o.fwd || null;
+        if (n) { ida = mismoSentido ? n : 0; vuelta = mismoSentido ? 0 : n; }
+        c.unaMano = true; c.sentido = mismoSentido ? 1 : -1;
+      } else if (o.lanes || o.fwd || o.bwd) {
+        var f = o.fwd || (o.lanes ? Math.ceil(o.lanes / 2) : null), bk = o.bwd || (o.lanes && f ? Math.max(1, o.lanes - f) : f);
+        ida = dato.mismo ? f : bk; vuelta = dato.mismo ? bk : f; c.unaMano = false; c.sentido = 0;
+      }
+      if (ida !== undefined || vuelta !== undefined) {
+        ida = ida || 0; vuelta = vuelta || 0;
+        var total = Math.max(1, ida + vuelta);
+        c.ancho = o.width && o.width > 2 ? o.width : total * 3.3;
+        c.ida = ida; c.vuelta = vuelta; c.w = c.ancho / total; c.divG = -c.ancho / 2 + vuelta * c.w; c.real = true;
+        return;
+      }
+      if (o.width && o.width > 2) c.ancho = o.width;
+      c.unaMano = o.sentido !== 0; if (c.unaMano) c.sentido = (o.sentido === 1) === dato.mismo ? 1 : -1;
+    }
+    // Sin dato de carriles: los estimamos por el ancho (uno cada 3 m o más por sentido)
+    if (c.unaMano) {
+      var n1 = Math.max(1, Math.floor(c.ancho / 3));
+      c.ida = c.sentido === -1 ? 0 : n1; c.vuelta = c.sentido === -1 ? n1 : 0;
+      c.w = c.ancho / n1; c.divG = c.sentido === -1 ? c.ancho / 2 : -c.ancho / 2;
+    } else {
+      var n2 = Math.max(1, Math.floor(c.ancho / 2 / 3));
+      c.ida = c.vuelta = n2; c.w = c.ancho / 2 / n2; c.divG = 0;
+    }
+    c.real = false;
   }
   function mostrarVelMax() {
     if (!velMax) { $('velMax').className = 'vel-max oculto'; return; }
@@ -2388,7 +2690,7 @@
     if (ruta && recordar) { rutaDescartada = ruta.t; guardar('rutaDescartada', rutaDescartada); }
     ruta = null; desvios = 0;
     $('rutaInfo').className = 'ruta-info oculto';
-    $('riManiobra').className = 'ri-maniobra oculto'; $('riBarra').style.width = '0';
+    $('riManiobra').className = 'ri-maniobra oculto'; $('riBarra').style.width = '0'; mostrarCarriles(null, 0);
     if (mapaListo && mapa.getSource('ruta')) { mapa.getSource('ruta').setData(GEO_VACIO); mapa.getSource('ruta-fin').setData(GEO_VACIO); }
   }
   $('btnQuitarRuta').addEventListener('click', function () { quitarRuta(true); toast('Ruta quitada'); });
@@ -2581,11 +2883,11 @@
   // Frena si desacelera (más de 1,2 m/s²) o si está detenido cerca de tu carril (los estacionados al costado, no).
   var VEHICULOS_FRENO = { auto: 1, camion: 1, colectivo: 1, moto: 1 }, velAnterior = {};
   function frenaVehiculo(ob, vYo) {
-    if (!VEHICULOS_FRENO[ob.tipo]) return false;
+    if (!VEHICULOS_FRENO[ob.tipo]) { velAnterior[ob.id] = { v: 0, t: ahora(), acel: 0, n: (velAnterior[ob.id] ? velAnterior[ob.id].n : 0) + 1 }; return false; }
     var t = ahora(), v = vYo + (ob.vy || 0), a = velAnterior[ob.id], acel = 0;
     if (a && t - a.t > 50) { acel = a.acel * 0.6 + ((v - a.v) / ((t - a.t) / 1000)) * 0.4; }
     else if (a) acel = a.acel;
-    velAnterior[ob.id] = { v: v, t: t, acel: acel };
+    velAnterior[ob.id] = { v: v, t: t, acel: acel, n: (a ? a.n : 0) + 1 };
     if (Object.keys(velAnterior).length > 200) {   // limpiamos los que ya no se ven
       for (var k in velAnterior) if (t - velAnterior[k].t > 5000) delete velAnterior[k];
     }
@@ -2653,7 +2955,8 @@
       var n = Math.max(1, Math.ceil(largo / 15));
       var ult = tramo.length ? tramo[tramo.length - 1] : null;
       if (!ult || ult[0] !== r[0][0] || ult[1] !== r[0][1]) { cerrar(); tramo.push(r[0]); }
-      for (var k = 1; k <= n; k++) tramo.push([r[0][0] + (r[1][0] - r[0][0]) * k / n, r[0][1] + (r[1][1] - r[0][1]) * k / n]);
+      for (var k = 1; k < n; k++) tramo.push([r[0][0] + (r[1][0] - r[0][0]) * k / n, r[0][1] + (r[1][1] - r[0][1]) * k / n]);
+      tramo.push(r[1]);   // el punto exacto: si no, por redondeo la calle se cortaba en cada vértice
       if (r[1] !== b) cerrar();
     }
     cerrar();
@@ -2673,11 +2976,12 @@
           if (Math.abs((ex * ux + ez * uz) / E) < 0.9) continue;
           var s = Math.max(0, Math.min(1, ((q[0] - p0[0]) * ex + (q[1] - p0[1]) * ez) / E2));
           var d = Math.sqrt(Math.pow(q[0] - p0[0] - ex * s, 2) + Math.pow(q[1] - p0[1] - ez * s, 2));
-          if (d < 8 && (!mejor || d < mejor.d)) mejor = { d: d, c: c };
+          if (d < 8 && (!mejor || d < mejor.d)) mejor = { d: d, c: c, mismo: (ex * ux + ez * uz) > 0 };
         }
       });
-      if (!mejor || mejor.c.unaMano) return q;
-      var lado = mejor.c.ancho / 4;
+      if (!mejor || mejor.c.w === undefined) return q;
+      var div = mejor.c.unaMano ? -mejor.c.ancho / 2 : (mejor.mismo ? mejor.c.divG : -mejor.c.divG);
+      var lado = (div + mejor.c.ancho / 2) / 2;         // en el medio de los carriles de tu sentido
       return [q[0] - uz * lado, q[1] + ux * lado];     // a la derecha del sentido de marcha
     });
   }
@@ -2685,14 +2989,26 @@
     var m = metrosLocales(p.lat), R = 180, calles = [];
     function local(c) { return [(c[0] - p.lng) * m.x, -(c[1] - p.lat) * m.y]; }
     obtenerCallesMapa().forEach(function (f) {
-      var pr = f.properties || {}, ancho = ANCHO_CALLE[pr['class']], g = f.geometry;
+      var pr = f.properties || {}, clase = pr['class'], ancho = ANCHO_CALLE[clase], g = f.geometry;
       if (!ancho || !g || pr.brunnel === 'tunnel') return;
-      if (pr.ramp === 1) ancho *= 0.6;
+      var unaMano = pr.oneway === 1 || pr.oneway === -1, rampa = pr.ramp === 1;
+      // Autopistas y autovías vienen como dos calzadas de una mano: cada una es la mitad
+      if (unaMano && !rampa && (clase === 'motorway' || clase === 'trunk')) ancho = Math.max(7.5, ancho / 2);
+      // Accesos y salidas (rampas): un carril si son de una mano (si OpenStreetMap dice otra cosa, se corrige después)
+      if (rampa) ancho = unaMano ? 4.5 : 7.5;
       var lineas = g.type === 'LineString' ? [g.coordinates] : g.type === 'MultiLineString' ? g.coordinates : [];
       lineas.forEach(function (l) {
-        partir(l.map(local), R).forEach(function (t) { calles.push({ pts: t, ancho: ancho, unaMano: pr.oneway === 1 || pr.oneway === -1, sentido: pr.oneway === -1 ? -1 : pr.oneway === 1 ? 1 : 0 }); });
+        partir(l.map(local), R).forEach(function (t) { calles.push({ pts: t, ancho: ancho, clase: clase, rampa: rampa, unaMano: unaMano, sentido: pr.oneway === -1 ? -1 : pr.oneway === 1 ? 1 : 0 }); });
       });
     });
+    // En la ruta (pocas calles alrededor), las de doble mano son de un carril por sentido: unos 7,3 m
+    var urbanas = 0;
+    calles.forEach(function (c) { if (c.clase === 'minor' || c.clase === 'tertiary') urbanas++; });
+    if (urbanas < 6) calles.forEach(function (c) {
+      c.rural = true;
+      if (!c.unaMano && !c.rampa && (c.clase === 'trunk' || c.clase === 'primary' || c.clase === 'secondary' || c.clase === 'tertiary')) c.ancho = 7.3;
+    });
+    calles.forEach(function (c) { completarCarriles(c, local); });
     var linea = null;
     if (ruta && ruta.coords) {
       var rp = [];
@@ -2736,7 +3052,8 @@
       var ob = objs[j], estado = '';
       if (ob === lider) estado = peligro ? 'peligro' : 'lider';
       else if (PEATONES[ob.tipo] && Math.abs(ob.x) < 2.5 && ob.d < 15) estado = 'aviso';
-      lista.push({ id: ob.id, tipo: ob.tipo, x: ob.x, y: ob.y, estado: estado, freno: frenaVehiculo(ob, vYo), vAbs: vYo + (ob.vy || 0) });
+      var frena = frenaVehiculo(ob, vYo);
+      lista.push({ id: ob.id, tipo: ob.tipo, x: ob.x, y: ob.y, estado: estado, freno: frena, vAbs: vYo + (ob.vy || 0), visto: velAnterior[ob.id] ? velAnterior[ob.id].n : 1, vYo: vYo });
     }
     if (panelEnt) panelEnt.actualizar({ avance: avanceSinDatos, lider: lider, peligro: peligro, objetos: lista, semaforo: datos.semaforo });
     mostrarEntorno(hueco, vYo, peligro, 0, datos.semaforo);
